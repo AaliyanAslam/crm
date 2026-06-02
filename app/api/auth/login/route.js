@@ -4,8 +4,8 @@ import User from "@/models/User";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken"
 
-const JWT_SECRET = process.env.JWT_SECRET
 export async function POST(req) {
+    const JWT_SECRET = process.env.JWT_SECRET || "devskarnel_secret_key_123";
 
     try {
         await connectDB();

@@ -192,7 +192,7 @@ const TaskCard = React.memo(({ card, index, onCardAdded, onCardClick }) => {
 
     return (
         <>
-            <Draggable draggableId={card.card_id.toString()} index={index}>
+            <Draggable draggableId={`card-${card.card_id}`} index={index}>
                 {(provided, snapshot) => (
                     <div
                         ref={provided.innerRef}

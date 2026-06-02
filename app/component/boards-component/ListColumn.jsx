@@ -79,7 +79,7 @@ const ListColumn = React.memo(({ list, onCardAdded, onCardClick, animationDelay 
             style={{
                 background: '#101204',
                 opacity: visible ? 1 : 0,
-                transform: visible ? 'translateY(0)' : 'translateY(12px)',
+                transform: visible ? 'none' : 'translateY(12px)',
                 transition: 'opacity 0.28s cubic-bezier(0.4,0,0.2,1), transform 0.28s cubic-bezier(0.4,0,0.2,1)',
             }}
         >
@@ -102,7 +102,7 @@ const ListColumn = React.memo(({ list, onCardAdded, onCardClick, animationDelay 
             </div>
 
             {/* Droppable Area */}
-            <Droppable droppableId={list.list_id.toString()} type="CARD">
+            <Droppable droppableId={`list-${list.list_id}`} type="CARD">
                 {(provided, snapshot) => (
                     <div
                         {...provided.droppableProps}
@@ -118,7 +118,7 @@ const ListColumn = React.memo(({ list, onCardAdded, onCardClick, animationDelay 
                     >
                         {list.cards?.map((card, index) => (
                             <TaskCard
-                                key={card.card_id}
+                                key={`card-${card.card_id}`}
                                 card={card}
                                 index={index}
                                 onCardAdded={onCardAdded}
