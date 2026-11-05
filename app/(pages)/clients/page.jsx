@@ -1,83 +1,214 @@
-"use client"
-import AddClientFormModal from '@/app/component/client-component/AddClientFormModel';
-import ClientsDataTable from '@/app/component/client-component/ClientsDataTable';
-import React, { useState } from 'react'
-import { inter } from '@/app/fonts';
+"use client";
 
-const Page = () => {
-  const [isModalOpen, setIsModalOpen] = useState(false);
+import React, { useState } from "react";
+import useSWR from "swr";
+import {
+    Plus,
+    Download,
+    Users,
+    UserCheck,
+    Clock,
+    TrendingUp,
+} from "lucide-react";
+import { toast } from "sonner";
+import { inter } from "@/app/fonts";
 
-  const openModal = () => setIsModalOpen(true);
-  const closeModal = () => setIsModalOpen(false);
+import AddClientFormModal from "@/app/component/client-component/AddClientFormModel";
+import ClientsDataTable from "@/app/component/client-component/ClientsDataTable";
 
-  return (
-    <div className={`min-h-screen bg-[#f7f7f7] ${inter.className} pb-10 sm:pb-14 md:pb-20`}>
+const fetcher = (url) => fetch(url).then((res) => res.json());
 
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-3 sm:px-5 md:px-6 py-3 sm:py-4 md:py-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
+export default function ClientsPage() {
+    const [isModalOpen, setIsModalOpen] = useState(false);
 
-          {/* Left Side: Text Content */}
-          <div>
-            <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-black/70 tracking-tight leading-tight">
-              <span className="hidden sm:inline">Devskarnel Customer Relation Management</span>
-              <span className="sm:hidden">Devskarnel CRM</span>
-            </h1>
-            <p className="text-[11px] sm:text-sm text-gray-500 mt-1">
-              View and manage your agency's client database
-            </p>
-          </div>
+    const { data: clientsData = [] } = useSWR("/api/client", fetcher, {
+        revalidateOnFocus: false,
+        dedupingInterval: 60000,
+        fallbackData: [],
+    });
 
-          {/* Right Side: Button */}
-          <button
-            onClick={openModal}
-            className="w-full sm:w-auto cursor-pointer group flex items-center justify-center gap-2 px-4 sm:px-5 md:px-6 py-2.5 sm:py-3 bg-black text-white rounded-lg font-bold text-xs sm:text-sm uppercase tracking-wider transition-all hover:bg-gray-800 active:scale-95 shadow-md shrink-0"
-          >
-            <svg className="w-5 h-5 transition-transform duration-300 group-hover:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
-            </svg>
-            <span className="whitespace-nowrap">Create Client</span>
-          </button>
-        </div>
-      </header>
+    const list = Array.isArray(clientsData) ? clientsData : [];
 
-      <main className="max-w-425 mx-auto px-3 sm:px-5 md:px-6 lg:px-8 mt-4 sm:mt-6 md:mt-8">
+    // Calculate metrics
+    const stats = {
+        total: list.length,
+        active: list.filter((c) => c.status === "Active").length,
+        pending: list.filter((c) => c.status === "Pending").length,
+        converted: list.filter((c) => c.lead_stage === "Converted").length,
+    };
 
-        {/* Table Container */}
-        <div className="bg-white  rounded-xl overflow-hidden p-2 sm:p-3 md:p-4">
-          <div className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 border-b border-gray-100 bg-gray-50/60 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2.5 sm:gap-3">
-            <h3 className="font-semibold text-gray-800 text-sm sm:text-base">Recent Clients</h3>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder="Search clients..."
-                className="w-full sm:w-56 text-xs sm:text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/10"
-              />
+    // Export to CSV helper
+    const handleExportCSV = () => {
+        if (!list || list.length === 0) {
+            toast.error("No client records to export.");
+            return;
+        }
+
+        const headers = [
+            "ID",
+            "Full Name",
+            "Email",
+            "Gender",
+            "Status",
+            "Phone Number",
+            "Company Name",
+            "Website",
+            "Country",
+            "State",
+            "City",
+            "Lead Source",
+            "Lead Stage",
+            "Created At",
+        ];
+
+        const rows = list.map((c) => [
+            c.client_id,
+            `"${(c.full_name || "").replace(/"/g, '""')}"`,
+            `"${(c.email || "").replace(/"/g, '""')}"`,
+            c.gender || "",
+            c.status || "",
+            `"${(c.phone_number || "").replace(/"/g, '""')}"`,
+            `"${(c.company_name || "").replace(/"/g, '""')}"`,
+            `"${(c.website_url || "").replace(/"/g, '""')}"`,
+            `"${(c.country || "").replace(/"/g, '""')}"`,
+            `"${(c.state || "").replace(/"/g, '""')}"`,
+            `"${(c.city || "").replace(/"/g, '""')}"`,
+            `"${(c.lead_source || "").replace(/"/g, '""')}"`,
+            `"${(c.lead_stage || "").replace(/"/g, '""')}"`,
+            `"${c.created_at || ""}"`,
+        ]);
+
+        const csvContent =
+            "data:text/csv;charset=utf-8," +
+            [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute(
+            "download",
+            `clients_export_${new Date().toISOString().split("T")[0]}.csv`
+        );
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast.success("CSV export downloaded successfully.");
+    };
+
+    return (
+        <div
+            suppressHydrationWarning
+            className={`min-h-screen bg-zinc-50/70 pb-16 text-zinc-900 ${inter.className}`}
+        >
+            <div className="mx-auto max-w-7xl px-3 sm:px-6 lg:px-8 pt-5 sm:pt-6 space-y-4 sm:space-y-5">
+                
+                {/* Header Bar */}
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-zinc-200/80 pb-4">
+                    <div>
+                        <div className="flex items-center gap-2 text-xs font-medium text-zinc-500 mb-1">
+                            <span>Devskarnel CRM</span>
+                            <span className="text-zinc-300">/</span>
+                            <span>Directory</span>
+                            <span className="text-zinc-300">/</span>
+                            <span className="text-zinc-800 font-semibold">Clients</span>
+                        </div>
+                        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-zinc-900">
+                            Client Directory
+                        </h1>
+                        <p className="mt-0.5 text-xs text-zinc-500">
+                            Manage client contacts, track sales pipeline status, and update account records.
+                        </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 sm:self-auto self-start">
+                        <button
+                            type="button"
+                            onClick={handleExportCSV}
+                            className="cursor-pointer inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 shadow-xs hover:bg-zinc-50 transition-colors"
+                        >
+                            <Download className="h-3.5 w-3.5 text-zinc-500" />
+                            <span>Export CSV</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => setIsModalOpen(true)}
+                            className="cursor-pointer inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-3.5 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-zinc-800 transition-colors"
+                        >
+                            <Plus className="h-3.5 w-3.5" />
+                            <span>Add Client</span>
+                        </button>
+                    </div>
+                </div>
+
+                {/* Compact KPI Cards (Shadcn style) */}
+                <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+                    <div className="rounded-xl border border-zinc-200/80 bg-white p-3.5 shadow-xs">
+                        <div className="flex items-center justify-between text-zinc-500">
+                            <span className="text-[11px] sm:text-xs font-medium">Total Directory</span>
+                            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-zinc-100 text-zinc-600">
+                                <Users className="h-3.5 w-3.5" />
+                            </div>
+                        </div>
+                        <p className="mt-2 text-xl sm:text-2xl font-bold tracking-tight text-zinc-900 tabular-nums">
+                            {stats.total}
+                        </p>
+                        <p className="mt-0.5 text-[10px] text-zinc-400">Synchronized records</p>
+                    </div>
+
+                    <div className="rounded-xl border border-zinc-200/80 bg-white p-3.5 shadow-xs">
+                        <div className="flex items-center justify-between text-zinc-500">
+                            <span className="text-[11px] sm:text-xs font-medium">Active Accounts</span>
+                            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-emerald-50 text-emerald-700">
+                                <UserCheck className="h-3.5 w-3.5" />
+                            </div>
+                        </div>
+                        <p className="mt-2 text-xl sm:text-2xl font-bold tracking-tight text-zinc-900 tabular-nums">
+                            {stats.active}
+                        </p>
+                        <p className="mt-0.5 text-[10px] text-zinc-400">
+                            {stats.total > 0 ? `${Math.round((stats.active / stats.total) * 100)}% of total` : "0%"}
+                        </p>
+                    </div>
+
+                    <div className="rounded-xl border border-zinc-200/80 bg-white p-3.5 shadow-xs">
+                        <div className="flex items-center justify-between text-zinc-500">
+                            <span className="text-[11px] sm:text-xs font-medium">Pending Review</span>
+                            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-amber-50 text-amber-700">
+                                <Clock className="h-3.5 w-3.5" />
+                            </div>
+                        </div>
+                        <p className="mt-2 text-xl sm:text-2xl font-bold tracking-tight text-zinc-900 tabular-nums">
+                            {stats.pending}
+                        </p>
+                        <p className="mt-0.5 text-[10px] text-zinc-400">Awaiting engagement</p>
+                    </div>
+
+                    <div className="rounded-xl border border-zinc-200/80 bg-white p-3.5 shadow-xs">
+                        <div className="flex items-center justify-between text-zinc-500">
+                            <span className="text-[11px] sm:text-xs font-medium">Converted Leads</span>
+                            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-zinc-100 text-zinc-700">
+                                <TrendingUp className="h-3.5 w-3.5" />
+                            </div>
+                        </div>
+                        <p className="mt-2 text-xl sm:text-2xl font-bold tracking-tight text-zinc-900 tabular-nums">
+                            {stats.converted}
+                        </p>
+                        <p className="mt-0.5 text-[10px] text-zinc-400">Closed & Won</p>
+                    </div>
+                </div>
+
+                {/* Main Client Table Card */}
+                <div className="rounded-xl border border-zinc-200/80 bg-white shadow-xs overflow-hidden">
+                    <ClientsDataTable />
+                </div>
+
+                {/* Add Client Modal */}
+                <AddClientFormModal
+                    isOpen={isModalOpen}
+                    onClose={() => setIsModalOpen(false)}
+                />
             </div>
-          </div>
-
-          <ClientsDataTable />
         </div>
-      </main>
-
-      {/* Modal Component */}
-      <div className='model-post'>
-        <AddClientFormModal
-          isOpen={isModalOpen}
-          onClose={closeModal}
-        />
-      </div>
-    </div>
-  )
+    );
 }
-
-const StatCard = ({ label, count, trend }) => (
-  <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">{label}</p>
-    <div className="flex items-baseline gap-2 mt-2">
-      <h4 className="text-3xl font-bold text-gray-900">{count}</h4>
-      <span className="text-[10px] font-medium text-green-600 bg-green-50 px-2 py-0.5 rounded-full">{trend}</span>
-    </div>
-  </div>
-);
-
-export default Page

@@ -1,14 +1,15 @@
 "use client";
 
-import React, { useState } from 'react';
-import { FiX, FiMessageSquare } from 'react-icons/fi';
-import { SlNote } from "react-icons/sl";
-import { toast } from 'sonner';
+import React, { useState } from "react";
+import { X, FileText, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { inter } from "@/app/fonts";
 
-
-const AddClientNotesModal = ({ clientId, isOpen, onClose, onSuccess }) => {
+export default function AddClientNotesModal({ clientId, isOpen, onClose, onSuccess }) {
     const [note, setNote] = useState("");
     const [loading, setLoading] = useState(false);
+
+    if (!isOpen) return null;
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -17,91 +18,94 @@ const AddClientNotesModal = ({ clientId, isOpen, onClose, onSuccess }) => {
         setLoading(true);
         try {
             const res = await fetch(`/api/notes/${clientId}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ note: note })
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ note: note.trim() }),
             });
 
             if (res.ok) {
                 setNote("");
-                onSuccess(); // Refresh the timeline
-                onClose();   // Close modal
-                toast.success("Note added successfully!");
+                if (onSuccess) onSuccess();
+                onClose();
+                toast.success("Activity note added successfully.");
+            } else {
+                toast.error("Failed to add note.");
             }
-        } catch (error) {
-            console.error("Failed to add note:", error);
+        } catch {
+            toast.error("Failed to add note.");
         } finally {
             setLoading(false);
         }
     };
 
-    if (!isOpen) return null;
-
     return (
-        <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
-            {/* Glass Backdrop */}
+        <div
+            className={`fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-zinc-950/40 backdrop-blur-xs ${inter.className}`}
+        >
             <div
-                className="absolute inset-0 bg-slate-900/30 backdrop-blur-sm transition-opacity"
-                onClick={onClose}
-            />
-
-            {/* Modal Content */}
-            <div className="relative w-full max-w-md bg-white rounded-lg shadow-2xl shadow-slate-900/20 overflow-hidden transform transition-all border border-slate-100">
-
+                className="relative w-full max-w-md overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-2xl transition-all"
+                role="dialog"
+                aria-modal="true"
+            >
                 {/* Header */}
-                <div className="p-4 flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-[#57CAD9]/10 rounded-2xl flex items-center justify-center text-[#57CAD9]">
-                            <SlNote size={20} />
+                <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-3.5">
+                    <div className="flex items-center gap-2">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-100 text-zinc-700">
+                            <FileText className="h-3.5 w-3.5" />
                         </div>
                         <div>
-                            <h2 className="text-lg font-black text-slate-900 tracking-tight uppercase">Add Client Note</h2>
+                            <h2 className="text-sm font-semibold tracking-tight text-zinc-900">
+                                Add Activity Note
+                            </h2>
+                            <p className="text-[11px] text-zinc-500">
+                                Record a meeting recap, client update, or feedback.
+                            </p>
                         </div>
                     </div>
                     <button
+                        type="button"
                         onClick={onClose}
-                        className="p-2 hover:bg-slate-50 rounded-full text-slate-400 hover:text-slate-900 transition-colors"
+                        className="cursor-pointer rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 transition-colors"
                     >
-                        <FiX size={20} />
+                        <X className="h-4 w-4" />
                     </button>
                 </div>
 
                 {/* Form */}
-                <form onSubmit={handleSubmit} className="p-8 space-y-6">
-                    <div className="space-y-2">
-                        <label className="text-[12px]  text-black/80  tracking-widest ml-1">
-                            Enter your client note below:
+                <form onSubmit={handleSubmit} className="p-5 space-y-4">
+                    <div>
+                        <label className="block text-xs font-medium text-zinc-700 mb-1.5">
+                            Note Content <span className="text-red-500">*</span>
                         </label>
                         <textarea
                             required
+                            rows={4}
                             value={note}
                             onChange={(e) => setNote(e.target.value)}
-                            placeholder="Detail the latest progress or feedback..."
-                            rows={4}
-                            className="w-full mt-3  bg-slate-50 border border-slate-200 rounded-lg p-4 text-sm font-medium text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-[#57CAD9]/20 focus:border-[#57CAD9] focus:bg-white transition-all resize-none"
+                            placeholder="e.g. Discussed new contract scope, client requested a proposal revision by Friday..."
+                            className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-xs text-zinc-900 outline-none focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10 placeholder:text-zinc-400 resize-none transition-all"
                         />
                     </div>
 
-                    <div className="flex gap-3">
+                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-100">
                         <button
                             type="button"
                             onClick={onClose}
-                            className="flex-1 px-6 py-3.5 rounded-lg border border-slate-100 text-[11px] uppercase tracking-widest text-slate-500 hover:bg-slate-50 transition-all"
+                            className="cursor-pointer rounded-lg border border-zinc-200 px-3.5 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 transition-colors"
                         >
                             Cancel
                         </button>
                         <button
-                            disabled={loading || !note.trim()}
-                            className="flex-1 px-6 py-3.5 rounded-lg bg-slate-950 text-white text-[11px] uppercase tracking-widest shadow-xl shadow-slate-200 hover:-translate-y-0.5 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                             type="submit"
+                            disabled={loading || !note.trim()}
+                            className="cursor-pointer inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-4 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-zinc-800 transition-colors disabled:opacity-50"
                         >
-                            {loading ? "Syncing..." : "Add Entry"}
+                            {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                            <span>Save Note</span>
                         </button>
                     </div>
                 </form>
             </div>
         </div>
     );
-};
-
-export default AddClientNotesModal;
+}
