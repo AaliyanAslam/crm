@@ -3,11 +3,38 @@
 import React, { useMemo } from "react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import useSWR from "swr";
-import { inter } from "@/app/fonts";
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
-const COLORS = ["#0d9488", "#f59e0b", "#f43f5e", "#94a3b8"];
+const STATUS_CONFIG = {
+    Active: {
+        color: "#18181b",
+        barColor: "bg-zinc-900",
+        label: "Active Accounts",
+    },
+    Pending: {
+        color: "#f59e0b",
+        barColor: "bg-amber-500",
+        label: "Pending Review",
+    },
+    Closed: {
+        color: "#a1a1aa",
+        barColor: "bg-zinc-400",
+        label: "Closed / Archived",
+    },
+};
+
+function CustomDonutTooltip({ active, payload }) {
+    if (!active || !payload || !payload.length) return null;
+    const item = payload[0];
+
+    return (
+        <div className="rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-1.5 text-xs text-white shadow-xl">
+            <span className="font-medium text-zinc-300">{item.name}: </span>
+            <span className="font-bold tabular-nums text-white">{item.value}</span>
+        </div>
+    );
+}
 
 export default function CircleCharts() {
     const { data: clientsData = [], isLoading } = useSWR("/api/client", fetcher, {
@@ -15,149 +42,131 @@ export default function CircleCharts() {
         revalidateIfStale: true,
         dedupingInterval: 60000,
         focusThrottleInterval: 300000,
-        errorRetryCount: 3,
-        errorRetryInterval: 5000,
         fallbackData: [],
     });
 
-    const list = Array.isArray(clientsData) ? clientsData : [];
+    const { distribution, total } = useMemo(() => {
+        const list = Array.isArray(clientsData) ? clientsData : [];
+        const totalCount = list.length;
+        const activeCount = list.filter((c) => c.status === "Active").length;
+        const pendingCount = list.filter((c) => c.status === "Pending").length;
+        const closedCount = list.filter((c) => c.status === "Closed").length;
 
-    const statusDistribution = useMemo(() => {
-        if (list.length === 0) {
-            return [
-                { name: "Active", value: 0 },
-                { name: "Pending", value: 0 },
-                { name: "Closed", value: 0 },
-            ];
-        }
-        const counts = {
-            Active: list.filter((c) => c.status === "Active").length,
-            Pending: list.filter((c) => c.status === "Pending").length,
-            Closed: list.filter((c) => c.status === "Closed").length,
-        };
-        return [
-            { name: "Active", value: counts.Active },
-            { name: "Pending", value: counts.Pending },
-            { name: "Closed", value: counts.Closed },
+        const data = [
+            {
+                name: "Active",
+                value: activeCount,
+                percent: totalCount > 0 ? Math.round((activeCount / totalCount) * 100) : 0,
+                color: STATUS_CONFIG.Active.color,
+                barColor: STATUS_CONFIG.Active.barColor,
+                label: STATUS_CONFIG.Active.label,
+            },
+            {
+                name: "Pending",
+                value: pendingCount,
+                percent: totalCount > 0 ? Math.round((pendingCount / totalCount) * 100) : 0,
+                color: STATUS_CONFIG.Pending.color,
+                barColor: STATUS_CONFIG.Pending.barColor,
+                label: STATUS_CONFIG.Pending.label,
+            },
+            {
+                name: "Closed",
+                value: closedCount,
+                percent: totalCount > 0 ? Math.round((closedCount / totalCount) * 100) : 0,
+                color: STATUS_CONFIG.Closed.color,
+                barColor: STATUS_CONFIG.Closed.barColor,
+                label: STATUS_CONFIG.Closed.label,
+            },
         ];
-    }, [list]);
+
+        return { distribution: data, total: totalCount };
+    }, [clientsData]);
 
     if (isLoading) {
         return (
-            <div
-                className={`flex min-h-65 items-center justify-center rounded-xl border border-slate-200/80 bg-white/95 ring-1 ring-white/80 ${inter.className}`}
-            >
-                <div className="flex flex-col items-center gap-2">
-                    <div className="h-8 w-8 animate-spin rounded-full border-2 border-teal-200 border-t-teal-600" />
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                        Loading
-                    </p>
-                </div>
+            <div className="flex h-full min-h-[300px] flex-col rounded-xl border border-zinc-200/80 bg-white p-4 shadow-xs">
+                <div className="h-4 w-32 animate-pulse rounded-md bg-zinc-100" />
+                <div className="mx-auto my-auto h-36 w-36 animate-pulse rounded-full border-4 border-zinc-100" />
             </div>
         );
     }
 
-    const hasData = list.length > 0;
-
-    const newLocal = "relative min-h-45 flex-1 px-1.5 pb-2 pt-1.5 sm:min-h-50";
     return (
-        <div
-            className={`flex min-h-65 w-full min-w-0 max-w-full flex-col overflow-x-clip overflow-y-hidden rounded-xl border border-slate-200/80 bg-white/95 shadow-sm shadow-slate-200/40 ring-1 ring-white/80 backdrop-blur-sm sm:min-h-[280px] md:min-h-[300px] ${inter.className}`}
-        >
-            <div className="border-b border-slate-100/90 px-2.5 py-2.5 sm:px-4 sm:py-3">
-                <h3 className="text-sm font-semibold tracking-tight text-slate-900 sm:text-base">
-                    Lead distribution
-                </h3>
-                <p className="mt-0.5 text-[11px] text-slate-500 sm:text-xs">
-                    Status breakdown from client records
+        <div className="flex h-full flex-col justify-between rounded-xl border border-zinc-200/80 bg-white p-3.5 sm:p-5 shadow-xs">
+            <div className="border-b border-zinc-100 pb-3">
+                <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold tracking-tight text-zinc-900">
+                        Status Distribution
+                    </h3>
+                    <span className="rounded-md bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-600">
+                        {total} Total
+                    </span>
+                </div>
+                <p className="mt-0.5 text-[11px] sm:text-xs text-zinc-500">
+                    Client account breakdown by active status
                 </p>
             </div>
 
-            <div className={newLocal}>
-                {!hasData ? (
-                    <div className="flex h-full min-h-40 flex-col items-center justify-center px-4 text-center">
-                        <p className="text-xs font-medium text-slate-600 sm:text-sm">
-                            No clients yet
-                        </p>
-                        <p className="mt-1.5 max-w-50 text-[11px] leading-snug text-slate-400">
-                            Add clients to see status split.
-                        </p>
-                    </div>
-                ) : (
-                    <div className="relative mx-auto h-45 w-full max-w-55 min-w-0 sm:h-50 sm:max-w-60">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie
-                                    data={statusDistribution}
-                                    dataKey="value"
-                                    nameKey="name"
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius="58%"
-                                    outerRadius="82%"
-                                    paddingAngle={3}
-                                    stroke="none"
-                                    cornerRadius={4}
-                                >
-                                    {statusDistribution.map((_, index) => (
-                                        <Cell
-                                            key={`cell-${index}`}
-                                            fill={
-                                                COLORS[index % COLORS.length]
-                                            }
-                                        />
-                                    ))}
-                                </Pie>
-                                <Tooltip
-                                    contentStyle={{
-                                        backgroundColor:
-                                            "rgba(255,255,255,0.96)",
-                                        borderRadius: "10px",
-                                        border: "1px solid #e2e8f0",
-                                        boxShadow:
-                                            "0 12px 28px -8px rgb(15 23 42 / 0.12)",
-                                        fontSize: "11px",
-                                        fontWeight: 600,
-                                    }}
-                                />
-                            </PieChart>
-                        </ResponsiveContainer>
-                        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                            <span className="text-2xl font-semibold tabular-nums text-slate-900 sm:text-3xl">
-                                {list.length}
-                            </span>
-                            <span className="mt-0.5 text-[9px] font-semibold uppercase tracking-widest text-slate-400">
-                                Total
-                            </span>
-                        </div>
-                    </div>
-                )}
+            <div className="relative my-2 flex h-36 sm:h-40 items-center justify-center">
+                <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                        <Pie
+                            data={distribution}
+                            dataKey="value"
+                            nameKey="name"
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={46}
+                            outerRadius={64}
+                            paddingAngle={3}
+                            stroke="none"
+                        >
+                            {distribution.map((entry) => (
+                                <Cell key={entry.name} fill={entry.color} />
+                            ))}
+                        </Pie>
+                        <Tooltip content={<CustomDonutTooltip />} />
+                    </PieChart>
+                </ResponsiveContainer>
+                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-xl font-bold tabular-nums text-zinc-900">
+                        {total}
+                    </span>
+                    <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-400">
+                        Clients
+                    </span>
+                </div>
             </div>
 
-            {hasData && (
-                <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 border-t border-slate-100/90 px-2 py-2 sm:px-3">
-                    {statusDistribution.map((item, index) => (
-                        <div
-                            key={item.name}
-                            className="flex items-center gap-1.5"
-                        >
-                            <span
-                                className="h-1.5 w-1.5 shrink-0 rounded-full"
-                                style={{
-                                    backgroundColor:
-                                        COLORS[index % COLORS.length],
-                                }}
-                            />
-                            <span className="text-[10px] font-medium text-slate-600 sm:text-xs">
-                                {item.name}
-                                <span className="ml-0.5 tabular-nums text-slate-400">
-                                    ({item.value})
+            <div className="space-y-2.5 pt-2 border-t border-zinc-100">
+                {distribution.map((item) => (
+                    <div key={item.name} className="space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-1.5">
+                                <span
+                                    className="h-2 w-2 rounded-full shrink-0"
+                                    style={{ backgroundColor: item.color }}
+                                />
+                                <span className="text-zinc-600 text-[11px] sm:text-xs font-medium">
+                                    {item.label}
                                 </span>
-                            </span>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-zinc-500 text-[11px]">
+                                <span className="font-semibold text-zinc-900 tabular-nums">
+                                    {item.value}
+                                </span>
+                                <span className="text-zinc-400">({item.percent}%)</span>
+                            </div>
                         </div>
-                    ))}
-                </div>
-            )}
+                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-100">
+                            <div
+                                className={`h-full ${item.barColor} transition-all duration-500 rounded-full`}
+                                style={{ width: `${item.percent}%` }}
+                            />
+                        </div>
+                    </div>
+                ))}
+            </div>
         </div>
     );
 }

@@ -1,126 +1,175 @@
 "use client";
 
+import React, { useState } from "react";
 import {
-    LineChart,
-    Line,
+    AreaChart,
+    Area,
     XAxis,
     YAxis,
     CartesianGrid,
     Tooltip,
-    Legend,
     ResponsiveContainer,
 } from "recharts";
-import { inter } from "@/app/fonts";
 
-const data = [
-    { name: "Jan", uv: 4000, pv: 2400 },
-    { name: "Feb", uv: 3000, pv: 1398 },
-    { name: "Mar", uv: 2000, pv: 9800 },
-    { name: "Apr", uv: 2780, pv: 3908 },
-    { name: "May", uv: 1890, pv: 4800 },
-    { name: "Jun", uv: 2390, pv: 3800 },
-    { name: "Jul", uv: 3490, pv: 4300 },
+const dataMonthly = [
+    { period: "Jan", newLeads: 24, dealsClosed: 14 },
+    { period: "Feb", newLeads: 31, dealsClosed: 18 },
+    { period: "Mar", newLeads: 42, dealsClosed: 26 },
+    { period: "Apr", newLeads: 38, dealsClosed: 22 },
+    { period: "May", newLeads: 49, dealsClosed: 32 },
+    { period: "Jun", newLeads: 58, dealsClosed: 39 },
+    { period: "Jul", newLeads: 51, dealsClosed: 35 },
+    { period: "Aug", newLeads: 62, dealsClosed: 44 },
+    { period: "Sep", newLeads: 71, dealsClosed: 48 },
+    { period: "Oct", newLeads: 65, dealsClosed: 43 },
+    { period: "Nov", newLeads: 78, dealsClosed: 52 },
+    { period: "Dec", newLeads: 85, dealsClosed: 59 },
 ];
 
-export default function DataCharts() {
+const dataWeekly = [
+    { period: "Mon", newLeads: 8, dealsClosed: 5 },
+    { period: "Tue", newLeads: 12, dealsClosed: 7 },
+    { period: "Wed", newLeads: 15, dealsClosed: 9 },
+    { period: "Thu", newLeads: 11, dealsClosed: 8 },
+    { period: "Fri", newLeads: 18, dealsClosed: 13 },
+    { period: "Sat", newLeads: 7, dealsClosed: 4 },
+    { period: "Sun", newLeads: 5, dealsClosed: 3 },
+];
+
+function CustomChartTooltip({ active, payload, label }) {
+    if (!active || !payload || !payload.length) return null;
+
     return (
-        <div
-            className={`flex min-h-65 w-full min-w-0 max-w-full flex-col overflow-x-clip overflow-y-hidden rounded-xl border border-slate-200/80 bg-white/95 shadow-sm shadow-slate-200/40 ring-1 ring-white/80 backdrop-blur-sm sm:min-h-70 md:min-h-75 ${inter.className}`}
-        >
-            <div className="border-b border-slate-100/90 px-2.5 py-2.5 sm:px-4 sm:py-3">
-                <h3 className="text-sm font-semibold tracking-tight text-slate-900 sm:text-base">
-                    Revenue overview
-                </h3>
-                <p className="mt-0.5 text-[11px] leading-snug text-slate-500 sm:text-xs">
-                    Sample trend — connect billing for live data.
-                </p>
+        <div className="rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-white shadow-xl">
+            <p className="font-semibold text-zinc-300">{label}</p>
+            <div className="mt-1.5 space-y-1">
+                {payload.map((entry, index) => (
+                    <div key={`item-${index}`} className="flex items-center gap-2">
+                        <span
+                            className="h-2 w-2 rounded-full"
+                            style={{ backgroundColor: entry.color }}
+                        />
+                        <span className="text-zinc-400">
+                            {entry.name === "newLeads" ? "New Inquiries" : "Converted"}
+                        </span>
+                        <span className="ml-auto font-medium tabular-nums text-white">
+                            {entry.value}
+                        </span>
+                    </div>
+                ))}
             </div>
-            <div className="min-h-0 w-full min-w-0 flex-1 px-1 pb-2 pt-1 sm:px-3 sm:pb-3 sm:pt-1.5">
-                <div className="h-50 w-full min-w-0 sm:h-55 md:h-60 lg:h-65">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <LineChart
-                            data={data}
-                            margin={{ top: 6, right: 8, left: -18, bottom: 2 }}
-                        >
-                            <CartesianGrid
-                                strokeDasharray="3 3"
-                                vertical={false}
-                                stroke="#f1f5f9"
-                            />
-                            <XAxis
-                                dataKey="name"
-                                axisLine={false}
-                                tickLine={false}
-                                tick={{ fill: "#64748b", fontSize: 10 }}
-                                dy={6}
-                            />
-                            <YAxis
-                                axisLine={false}
-                                tickLine={false}
-                                tick={{ fill: "#64748b", fontSize: 10 }}
-                                width={32}
-                            />
-                            <Tooltip
-                                contentStyle={{
-                                    backgroundColor: "rgba(255,255,255,0.96)",
-                                    borderRadius: "10px",
-                                    border: "1px solid #e2e8f0",
-                                    boxShadow:
-                                        "0 12px 28px -8px rgb(15 23 42 / 0.12)",
-                                    padding: "8px 10px",
-                                }}
-                                labelStyle={{
-                                    fontWeight: 600,
-                                    color: "#0f172a",
-                                    marginBottom: 2,
-                                    fontSize: "11px",
-                                }}
-                                itemStyle={{
-                                    fontSize: "11px",
-                                    fontWeight: 600,
-                                    color: "#334155",
-                                }}
-                            />
-                            <Legend
-                                iconType="circle"
-                                wrapperStyle={{
-                                    paddingTop: "8px",
-                                    fontSize: "10px",
-                                    fontWeight: 600,
-                                    color: "#64748b",
-                                }}
-                            />
-                            <Line
-                                type="monotone"
-                                dataKey="pv"
-                                name="Pipeline"
-                                stroke="#0d9488"
-                                strokeWidth={2}
-                                dot={{
-                                    r: 2.5,
-                                    fill: "#0d9488",
-                                    strokeWidth: 1.5,
-                                    stroke: "#fff",
-                                }}
-                                activeDot={{ r: 4, strokeWidth: 0 }}
-                            />
-                            <Line
-                                type="monotone"
-                                dataKey="uv"
-                                name="Volume"
-                                stroke="#6366f1"
-                                strokeWidth={2}
-                                dot={{
-                                    r: 2.5,
-                                    fill: "#6366f1",
-                                    strokeWidth: 1.5,
-                                    stroke: "#fff",
-                                }}
-                                activeDot={{ r: 4, strokeWidth: 0 }}
-                            />
-                        </LineChart>
-                    </ResponsiveContainer>
+        </div>
+    );
+}
+
+export default function DataCharts() {
+    const [range, setRange] = useState("monthly");
+    const activeData = range === "monthly" ? dataMonthly : dataWeekly;
+
+    return (
+        <div className="flex h-full flex-col rounded-xl border border-zinc-200/80 bg-white p-3.5 sm:p-5 shadow-xs">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-zinc-100 pb-3">
+                <div>
+                    <h3 className="text-sm font-semibold tracking-tight text-zinc-900">
+                        Pipeline & Deal Volume
+                    </h3>
+                    <p className="text-[11px] sm:text-xs text-zinc-500">
+                        Client growth vs conversion velocity over time
+                    </p>
                 </div>
+
+                <div className="flex items-center self-start sm:self-auto gap-1 rounded-lg bg-zinc-100/90 p-0.5 text-[11px] font-medium text-zinc-600">
+                    <button
+                        type="button"
+                        onClick={() => setRange("weekly")}
+                        className={`cursor-pointer rounded-md px-2.5 py-1 transition-all ${
+                            range === "weekly"
+                                ? "bg-white text-zinc-900 shadow-xs font-semibold"
+                                : "hover:text-zinc-900"
+                        }`}
+                    >
+                        7 Days
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setRange("monthly")}
+                        className={`cursor-pointer rounded-md px-2.5 py-1 transition-all ${
+                            range === "monthly"
+                                ? "bg-white text-zinc-900 shadow-xs font-semibold"
+                                : "hover:text-zinc-900"
+                        }`}
+                    >
+                        12 Months
+                    </button>
+                </div>
+            </div>
+
+            <div className="mt-3 flex items-center gap-4 text-xs">
+                <div className="flex items-center gap-1.5 text-zinc-600">
+                    <span className="h-2.5 w-2.5 rounded-full bg-zinc-900" />
+                    <span>New Inquiries</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-zinc-600">
+                    <span className="h-2.5 w-2.5 rounded-full bg-zinc-400" />
+                    <span>Converted Deals</span>
+                </div>
+            </div>
+
+            <div className="mt-2 h-[220px] sm:h-[260px] w-full min-w-0">
+                <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart
+                        data={activeData}
+                        margin={{ top: 8, right: 8, left: -20, bottom: 0 }}
+                    >
+                        <defs>
+                            <linearGradient id="fillNewLeads" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#18181b" stopOpacity={0.16} />
+                                <stop offset="95%" stopColor="#18181b" stopOpacity={0} />
+                            </linearGradient>
+                            <linearGradient id="fillDeals" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#71717a" stopOpacity={0.14} />
+                                <stop offset="95%" stopColor="#71717a" stopOpacity={0} />
+                            </linearGradient>
+                        </defs>
+                        <CartesianGrid
+                            strokeDasharray="3 3"
+                            vertical={false}
+                            stroke="#f4f4f5"
+                        />
+                        <XAxis
+                            dataKey="period"
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{ fill: "#71717a", fontSize: 11 }}
+                            dy={6}
+                        />
+                        <YAxis
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{ fill: "#71717a", fontSize: 11 }}
+                            width={32}
+                        />
+                        <Tooltip content={<CustomChartTooltip />} />
+                        <Area
+                            type="monotone"
+                            dataKey="newLeads"
+                            name="newLeads"
+                            stroke="#18181b"
+                            strokeWidth={2}
+                            fillOpacity={1}
+                            fill="url(#fillNewLeads)"
+                        />
+                        <Area
+                            type="monotone"
+                            dataKey="dealsClosed"
+                            name="dealsClosed"
+                            stroke="#71717a"
+                            strokeWidth={1.75}
+                            fillOpacity={1}
+                            fill="url(#fillDeals)"
+                        />
+                    </AreaChart>
+                </ResponsiveContainer>
             </div>
         </div>
     );
