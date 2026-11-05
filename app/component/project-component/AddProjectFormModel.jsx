@@ -1,193 +1,288 @@
-"use client"
-import React, { useState, useEffect, useMemo } from 'react';
-import { inter } from '@/app/fonts';
-import { FiUser, FiMail, FiGlobe, FiBriefcase, FiAlertCircle, FiX } from "react-icons/fi";
+"use client";
 
-const AddProjectFormModal = ({ isOpen, onClose, onSuccess }) => {
-    const [clients, setClients] = useState([]);
+import React, { useState } from "react";
+import useSWR, { mutate } from "swr";
+import { X, Loader2, Briefcase, Calendar, DollarSign } from "lucide-react";
+import { toast } from "sonner";
+import { inter } from "@/app/fonts";
+
+const fetcher = (url) => fetch(url).then((res) => res.json());
+
+const initialForm = {
+    client_id: "",
+    project_name: "",
+    description: "",
+    status: "In Progress",
+    budget: "",
+    start_date: "",
+    deadline: "",
+    priority: "Medium",
+    logo_url: "",
+};
+
+export default function AddProjectFormModal({ isOpen, onClose, onSuccess }) {
+    const [formData, setFormData] = useState(initialForm);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [formData, setFormData] = useState({
-        client_id: '',
-        project_name: '',
-        description: '',
-        status: 'Planning',
-        budget: '',
-        start_date: '',
-        deadline: '',
-        priority: 'Medium',
-        logo_url: ''
+
+    const { data: clientsData = [] } = useSWR(isOpen ? "/api/client" : null, fetcher, {
+        revalidateOnFocus: false,
+        fallbackData: [],
     });
 
-    const selectedClient = useMemo(() => {
-        return clients.find(c => c.client_id === parseInt(formData.client_id));
-    }, [formData.client_id, clients]);
-
-    useEffect(() => {
-        if (isOpen) {
-            fetch('/api/client')
-                .then(res => res.json())
-                .then(data => setClients(Array.isArray(data) ? data : data.data || []))
-                .catch(err => console.error("Error:", err));
-        }
-    }, [isOpen]);
+    const clients = Array.isArray(clientsData) ? clientsData : clientsData.data || [];
 
     if (!isOpen) return null;
 
     const handleChange = (e) => {
-        setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+        setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (!formData.project_name || !formData.client_id) {
+            toast.error("Please provide a project name and assign a client.");
+            return;
+        }
+
         setIsSubmitting(true);
         try {
-            const res = await fetch('/api/project', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+            const res = await fetch("/api/project", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     ...formData,
-                    client_id: parseInt(formData.client_id),
-                    budget: parseFloat(formData.budget) || 0
+                    client_id: parseInt(formData.client_id, 10),
+                    budget: parseFloat(formData.budget) || 0,
+                    start_date: formData.start_date || null,
+                    deadline: formData.deadline || null,
                 }),
             });
+
             if (res.ok) {
-                onSuccess?.();
+                toast.success("Project created successfully!");
+                setFormData(initialForm);
+                await mutate("/api/project");
+                if (onSuccess) onSuccess();
                 onClose();
+            } else {
+                const data = await res.json().catch(() => ({}));
+                toast.error(data.message || "Failed to create project.");
             }
-        } catch (error) {
-            console.error("Error:", error);
+        } catch (err) {
+            toast.error(err.message || "Failed to create project.");
         } finally {
             setIsSubmitting(false);
         }
     };
 
     return (
-        <div className={`fixed inset-0 bg-slate-900/30 backdrop-blur-sm flex items-center justify-center z-50 p-4 ${inter.className}`}>
-            {/* Modal Container */}
-            <div className="bg-white rounded-xl shadow-[0_25px_50px_rgba(0,0,0,0.15)] w-full max-w-5xl max-h-[95vh] overflow-hidden flex flex-col md:flex-row border border-slate-200/80">
-
-                {/* LEFT SIDE: Form */}
-                <div className="flex-[1.5] p-3 md:p-5 overflow-y-auto border-r border-slate-100">
-                    <div className="flex justify-between items-center mb-3">
+        <div
+            className={`fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-zinc-950/40 backdrop-blur-xs ${inter.className}`}
+        >
+            <div
+                className="relative w-full max-w-2xl overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-2xl transition-all"
+                role="dialog"
+                aria-modal="true"
+            >
+                {/* Header */}
+                <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-4">
+                    <div className="flex items-center gap-2.5">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-100 text-zinc-700">
+                            <Briefcase className="h-3.5 w-3.5" />
+                        </div>
                         <div>
-                            <h2 className="text-lg md:text-xl font-semibold text-slate-900 tracking-tight">New Project</h2>
+                            <h2 className="text-base font-semibold tracking-tight text-zinc-900">
+                                Create New Project
+                            </h2>
+                            <p className="text-xs text-zinc-500">
+                                Assign a client, set budget allocations, and define milestones.
+                            </p>
                         </div>
-                        <button onClick={onClose} className="md:hidden p-1.5 text-slate-600 hover:text-slate-900 transition-colors"><FiX size={20} /></button>
                     </div>
-
-                    <form onSubmit={handleSubmit} className="space-y-2">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            <div className="sm:col-span-2">
-                                <label className="block text-[0.65rem] md:text-[0.75rem] font-medium text-slate-700 mb-0.5">Assign Client</label>
-                                <select name="client_id" value={formData.client_id} onChange={handleChange} required className="w-full px-2.5 md:px-3 py-1.5 md:py-2 bg-white border border-slate-200 rounded-md focus:border-[#5FC8DB] focus:ring-4 focus:ring-[#5FC8DB]/20 outline-none transition-all appearance-none cursor-pointer text-xs md:text-xs hover:border-slate-300">
-                                    <option value="">Choose Client</option>
-                                    {clients.map(client => (
-                                        <option className='rounded' key={client.client_id} value={client.client_id}>{client.full_name}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div className="sm:col-span-2">
-                                <label className="block text-[0.65rem] md:text-[0.75rem] font-medium text-slate-700 mb-0.5">Project Name</label>
-                                <input type="text" name="project_name" value={formData.project_name} onChange={handleChange} required placeholder="Enter project title" className="w-full px-2.5 md:px-3 py-1.5 md:py-2 bg-white border border-slate-200 rounded-md outline-none focus:border-[#5FC8DB] focus:ring-4 focus:ring-[#5FC8DB]/20 placeholder:text-slate-350 text-xs md:text-xs transition-all hover:border-slate-300" />
-                            </div>
-
-                            <div>
-                                <label className="block text-[0.65rem] md:text-[0.75rem] font-medium text-slate-700 mb-0.5">Budget ($)</label>
-                                <input type="number" name="budget" value={formData.budget} onChange={handleChange} placeholder="0.00" className="w-full px-2.5 md:px-3 py-1.5 md:py-2 bg-white border border-slate-200 rounded-md outline-none focus:border-[#5FC8DB] focus:ring-4 focus:ring-[#5FC8DB]/20 text-xs md:text-xs transition-all hover:border-slate-300" />
-                            </div>
-
-                            <div>
-                                <label className="block text-[0.65rem] md:text-[0.75rem] font-medium text-slate-700 mb-0.5">Priority Level</label>
-                                <select name="priority" value={formData.priority} onChange={handleChange} className="w-full px-2.5 md:px-3 py-1.5 md:py-2 bg-white border border-slate-200 rounded-md outline-none focus:border-[#5FC8DB] focus:ring-4 focus:ring-[#5FC8DB]/20 cursor-pointer text-xs md:text-xs transition-all hover:border-slate-300 appearance-none">
-                                    <option value="Low">Low</option>
-                                    <option value="Medium">Medium</option>
-                                    <option value="High">High</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="block text-[0.65rem] md:text-[0.75rem] font-medium text-slate-700 mb-0.5">Start Date</label>
-                                <input type="date" name="start_date" value={formData.start_date} onChange={handleChange} required className="w-full px-2.5 md:px-3 py-1.5 md:py-2 bg-white border border-slate-200 rounded-md outline-none focus:border-[#5FC8DB] focus:ring-4 focus:ring-[#5FC8DB]/20 text-xs md:text-xs transition-all hover:border-slate-300" />
-                            </div>
-
-                            <div>
-                                <label className="block text-[0.65rem] md:text-[0.75rem] font-medium text-slate-700 mb-0.5">Deadline</label>
-                                <input type="date" name="deadline" value={formData.deadline} onChange={handleChange} required className="w-full px-2.5 md:px-3 py-1.5 md:py-2 bg-white border border-slate-200 rounded-md outline-none focus:border-[#5FC8DB] focus:ring-4 focus:ring-[#5FC8DB]/20 text-xs md:text-xs transition-all hover:border-slate-300" />
-                            </div>
-
-                            <div className="sm:col-span-2">
-                                <label className="block text-[0.65rem] md:text-[0.75rem] font-medium text-slate-700 mb-0.5">Brief Description</label>
-                                <textarea name="description" value={formData.description} onChange={handleChange} rows="2" className="w-full px-2.5 md:px-3 py-1.5 md:py-2 bg-white border border-slate-200 rounded-md outline-none focus:border-[#5FC8DB] focus:ring-4 focus:ring-[#5FC8DB]/20 resize-none text-xs md:text-xs transition-all hover:border-slate-300" placeholder="Outline project scope..."></textarea>
-                            </div>
-                            <div className="sm:col-span-2">
-                                <label className="block text-[0.65rem] md:text-[0.75rem] font-medium text-slate-700 mb-0.5">Logo URL</label>
-                                <input type="text" name="logo_url" value={formData.logo_url} onChange={handleChange} className="w-full px-2.5 md:px-3 py-1.5 md:py-2 bg-white border border-slate-200 rounded-md outline-none focus:border-[#5FC8DB] focus:ring-4 focus:ring-[#5FC8DB]/20 text-xs md:text-xs transition-all hover:border-slate-300" placeholder="Enter logo URL..." />
-                            </div>
-                        </div>
-
-                        <div className="flex flex-col sm:flex-row gap-2 pt-2">
-                            <button type="button" onClick={onClose} className="flex-1 py-1.5 md:py-2 bg-white border border-slate-200 rounded-md font-semibold text-[10px] md:text-xs tracking-widest hover:bg-slate-50 transition-all text-slate-700">Cancel</button>
-                            <button type="submit" disabled={isSubmitting} className="flex-1 py-1.5 md:py-2 bg-linear-to-r from-[#5FC8DB] to-[#5FC8DB]/80 hover:from-[#5FC8DB]/90 hover:to-[#5FC8DB]/70 text-white rounded-md font-semibold text-[10px] md:text-xs tracking-widest shadow-lg shadow-[#5FC8DB]/30 hover:shadow-[#5FC8DB]/40 transition-all active:scale-95 disabled:opacity-30">
-                                {isSubmitting ? 'Syncing...' : 'Save Project'}
-                            </button>
-                        </div>
-                    </form>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="cursor-pointer rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 transition-colors"
+                    >
+                        <X className="h-4 w-4" />
+                    </button>
                 </div>
 
-                {/* RIGHT SIDE: Client Context */}
-                <div className="flex-1 bg-linear-to-br from-[#5FC8DB]/10 to-[#5FC8DB]/5 p-3 md:p-5 flex flex-col order-first md:order-last border-l border-slate-100">
-                    <div className="hidden md:flex justify-end mb-4">
-                        <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors"><FiX size={20} /></button>
+                {/* Form */}
+                <form onSubmit={handleSubmit} className="max-h-[78vh] overflow-y-auto px-5 py-4 space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                        
+                        {/* Assign Client */}
+                        <div className="sm:col-span-2">
+                            <label className="block text-[11px] font-medium text-zinc-700 mb-1">
+                                Assign Client <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                                required
+                                name="client_id"
+                                value={formData.client_id}
+                                onChange={handleChange}
+                                className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-900 outline-none focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10 cursor-pointer"
+                            >
+                                <option value="">Select a client from directory...</option>
+                                {clients.map((c) => (
+                                    <option key={c.client_id} value={c.client_id}>
+                                        {c.full_name} {c.company_name ? `(${c.company_name})` : ""}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* Project Name */}
+                        <div className="sm:col-span-2">
+                            <label className="block text-[11px] font-medium text-zinc-700 mb-1">
+                                Project Title <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                                required
+                                name="project_name"
+                                value={formData.project_name}
+                                onChange={handleChange}
+                                placeholder="e.g. Global Logistics Dashboard Redesign"
+                                className="w-full rounded-lg border border-zinc-200 px-3 py-1.5 text-xs text-zinc-900 outline-none focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10 transition-all placeholder:text-zinc-400"
+                            />
+                        </div>
+
+                        {/* Description */}
+                        <div className="sm:col-span-2">
+                            <label className="block text-[11px] font-medium text-zinc-700 mb-1">
+                                Scope & Description
+                            </label>
+                            <textarea
+                                rows={2.5}
+                                name="description"
+                                value={formData.description}
+                                onChange={handleChange}
+                                placeholder="Key deliverables, technical requirements, or sprint goals..."
+                                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-xs text-zinc-900 outline-none focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10 transition-all placeholder:text-zinc-400 resize-none"
+                            />
+                        </div>
+
+                        {/* Budget */}
+                        <div>
+                            <label className="block text-[11px] font-medium text-zinc-700 mb-1">
+                                Budget ($ USD)
+                            </label>
+                            <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-zinc-400 font-medium">
+                                    $
+                                </span>
+                                <input
+                                    type="number"
+                                    name="budget"
+                                    value={formData.budget}
+                                    onChange={handleChange}
+                                    placeholder="25000"
+                                    className="w-full rounded-lg border border-zinc-200 pl-7 pr-3 py-1.5 text-xs text-zinc-900 outline-none focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10 transition-all placeholder:text-zinc-400"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Priority */}
+                        <div>
+                            <label className="block text-[11px] font-medium text-zinc-700 mb-1">
+                                Priority Level
+                            </label>
+                            <select
+                                name="priority"
+                                value={formData.priority}
+                                onChange={handleChange}
+                                className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs text-zinc-900 outline-none focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10 cursor-pointer"
+                            >
+                                <option value="High">High</option>
+                                <option value="Medium">Medium</option>
+                                <option value="Low">Low</option>
+                            </select>
+                        </div>
+
+                        {/* Status */}
+                        <div>
+                            <label className="block text-[11px] font-medium text-zinc-700 mb-1">
+                                Initial Status
+                            </label>
+                            <select
+                                name="status"
+                                value={formData.status}
+                                onChange={handleChange}
+                                className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs text-zinc-900 outline-none focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10 cursor-pointer"
+                            >
+                                <option value="Planning">Planning</option>
+                                <option value="In Progress">In Progress</option>
+                                <option value="Completed">Completed</option>
+                                <option value="On Hold">On Hold</option>
+                            </select>
+                        </div>
+
+                        {/* Logo / Thumbnail URL */}
+                        <div>
+                            <label className="block text-[11px] font-medium text-zinc-700 mb-1">
+                                Thumbnail / Logo URL
+                            </label>
+                            <input
+                                type="url"
+                                name="logo_url"
+                                value={formData.logo_url}
+                                onChange={handleChange}
+                                placeholder="https://images.unsplash.com/..."
+                                className="w-full rounded-lg border border-zinc-200 px-3 py-1.5 text-xs text-zinc-900 outline-none focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10 transition-all placeholder:text-zinc-400"
+                            />
+                        </div>
+
+                        {/* Start Date */}
+                        <div>
+                            <label className="block text-[11px] font-medium text-zinc-700 mb-1">
+                                Start Date
+                            </label>
+                            <input
+                                type="date"
+                                name="start_date"
+                                value={formData.start_date}
+                                onChange={handleChange}
+                                className="w-full rounded-lg border border-zinc-200 px-3 py-1.5 text-xs text-zinc-900 outline-none focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10"
+                            />
+                        </div>
+
+                        {/* Deadline */}
+                        <div>
+                            <label className="block text-[11px] font-medium text-zinc-700 mb-1">
+                                Delivery Deadline
+                            </label>
+                            <input
+                                type="date"
+                                name="deadline"
+                                value={formData.deadline}
+                                onChange={handleChange}
+                                className="w-full rounded-lg border border-zinc-200 px-3 py-1.5 text-xs text-zinc-900 outline-none focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10"
+                            />
+                        </div>
+
                     </div>
 
-                    <div className="space-y-4 h-full">
-                        <p className="text-[0.65rem] md:text-[0.75rem] font-medium text-slate-600 uppercase tracking-widest">Client Information</p>
-
-                        {selectedClient ? (
-                            <div className="space-y-4 animate-in fade-in slide-in-from-right-2 duration-500">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-10 h-10 bg-[#5FC8DB] text-white rounded-md flex items-center justify-center text-sm font-semibold">
-                                        {selectedClient.full_name.charAt(0)}
-                                    </div>
-                                    <div>
-                                        <h4 className="text-sm md:text-base font-semibold text-slate-900 leading-none">{selectedClient.full_name}</h4>
-                                        <p className="text-[0.65rem] md:text-[0.75rem] text-slate-600 font-normal tracking-widest mt-0.5">{selectedClient.company_name || 'Individual'}</p>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-3 pt-4 border-t border-slate-200">
-                                    <DetailItem icon={<FiMail />} label="Email Address" value={selectedClient.email} />
-                                    <DetailItem icon={<FiGlobe />} label="Location" value={`${selectedClient.city}, ${selectedClient.country}`} />
-                                    <DetailItem icon={<FiBriefcase />} label="Website" value={selectedClient.website_url || 'None'} isLink />
-                                </div>
-
-                            </div>
-                        ) : (
-                            <div className="flex-1 flex flex-col items-center justify-center text-center opacity-40">
-                                <FiUser size={32} className="mb-2 text-slate-400" />
-                                <p className="text-[0.65rem] md:text-[0.75rem] font-medium text-slate-600">No Client Selected</p>
-                            </div>
-                        )}
+                    {/* Footer */}
+                    <div className="flex items-center justify-end gap-2 pt-3 border-t border-zinc-100">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="cursor-pointer rounded-lg border border-zinc-200 px-3.5 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50 transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={isSubmitting}
+                            className="cursor-pointer inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-4 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-zinc-800 transition-colors disabled:opacity-50"
+                        >
+                            {isSubmitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                            <span>Create Project</span>
+                        </button>
                     </div>
-                </div>
+                </form>
             </div>
         </div>
     );
-};
-
-const DetailItem = ({ icon, label, value, isLink }) => (
-    <div className="flex items-start gap-2">
-        <div className="mt-0.5 text-[#5FC8DB] shrink-0 opacity-60">{icon}</div>
-        <div className="min-w-0">
-            <p className="text-[0.65rem] md:text-[0.75rem] font-medium text-slate-600 uppercase tracking-widest mb-0.5">{label}</p>
-            {isLink && value !== 'None' ? (
-                <a href={value} target="_blank" className="text-xs font-normal text-[#5FC8DB] hover:underline break-all">{value}</a>
-            ) : (
-                <p className="text-xs font-normal text-slate-800">{value}</p>
-            )}
-        </div>
-    </div>
-);
-
-export default AddProjectFormModal;
+}
