@@ -5,6 +5,7 @@ import { X, Loader2, User, Building, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { mutate } from "swr";
 import { inter } from "@/app/fonts";
+import { useSettings } from "@/app/hooks/useSettings";
 
 const initialForm = {
     full_name: "",
@@ -23,7 +24,11 @@ const initialForm = {
 };
 
 export default function AddClientFormModal({ isOpen, onClose }) {
-    const [formData, setFormData] = useState(initialForm);
+    const { settings } = useSettings();
+    const [formData, setFormData] = useState(() => ({
+        ...initialForm,
+        lead_stage: settings?.defaultLeadStage || "New",
+    }));
     const [isLoading, setIsLoading] = useState(false);
 
     if (!isOpen) return null;

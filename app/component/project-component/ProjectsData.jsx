@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { inter } from "@/app/fonts";
+import { useSettings } from "@/app/hooks/useSettings";
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
@@ -66,6 +67,7 @@ const PRIORITY_MAP = {
 };
 
 export default function ProjectsData() {
+    const { formatCurrency } = useSettings();
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("All");
     const [priorityFilter, setPriorityFilter] = useState("All");
@@ -363,7 +365,7 @@ export default function ProjectsData() {
                                                 Budget
                                             </span>
                                             <span className="font-semibold text-zinc-800 tabular-nums">
-                                                {p.budget ? `$${Number(p.budget).toLocaleString()}` : "—"}
+                                                {p.budget ? formatCurrency(p.budget) : "—"}
                                             </span>
                                         </div>
 
@@ -462,7 +464,7 @@ export default function ProjectsData() {
                                                 </span>
                                             </td>
                                             <td className="px-4 py-2.5 sm:px-5 tabular-nums font-medium text-zinc-800">
-                                                {p.budget ? `$${Number(p.budget).toLocaleString()}` : "—"}
+                                                {p.budget ? formatCurrency(p.budget) : "—"}
                                             </td>
                                             <td className="px-4 py-2.5 sm:px-5 text-zinc-500">
                                                 {p.deadline ? new Date(p.deadline).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}

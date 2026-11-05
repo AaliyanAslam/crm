@@ -49,6 +49,17 @@ export async function POST(req) {
       );
     }
 
+    // Duplicate detection check
+    const existing = await Client.findOne({
+      where: { email: body.email.trim() }
+    });
+    if (existing) {
+      return NextResponse.json(
+        { message: `A client with email "${body.email.trim()}" is already registered.` },
+        { status: 409 }
+      );
+    }
+
     const client = await Client.create(body);
 
     return NextResponse.json({

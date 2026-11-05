@@ -13,10 +13,12 @@ import { inter } from "@/app/fonts";
 
 import AddProjectFormModal from "@/app/component/project-component/AddProjectFormModel";
 import ProjectsData from "@/app/component/project-component/ProjectsData";
+import { useSettings } from "@/app/hooks/useSettings";
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
 export default function ProjectsPage() {
+    const { settings: appSettings, formatCurrency } = useSettings();
     const [showModal, setShowModal] = useState(false);
 
     const { data, mutate } = useSWR("/api/project", fetcher, {
@@ -49,7 +51,7 @@ export default function ProjectsPage() {
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-zinc-200/80 pb-4">
                     <div>
                         <div className="flex items-center gap-2 text-xs font-medium text-zinc-500 mb-1">
-                            <span>Devskarnel CRM</span>
+                            <span>{appSettings.workspaceName || "Devskarnel CRM"}</span>
                             <span className="text-zinc-300">/</span>
                             <span>Workspace</span>
                             <span className="text-zinc-300">/</span>
@@ -124,9 +126,9 @@ export default function ProjectsPage() {
                             </div>
                         </div>
                         <p className="mt-2 text-xl sm:text-2xl font-bold tracking-tight text-zinc-900 tabular-nums">
-                            ${Math.round(totalBudget / 1000)}k
+                            {formatCurrency(totalBudget)}
                         </p>
-                        <p className="mt-0.5 text-[10px] text-zinc-400">${Number(totalBudget).toLocaleString()} total value</p>
+                        <p className="mt-0.5 text-[10px] text-zinc-400">Total pipeline allocation</p>
                     </div>
                 </div>
 

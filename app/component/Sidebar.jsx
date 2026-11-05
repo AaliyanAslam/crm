@@ -11,6 +11,7 @@ import { PiUsersThreeLight } from "react-icons/pi";
 import { inter } from '../fonts';
 import Image from 'next/image';
 import { useUser } from '../hooks/useUser';
+import { useSettings } from '../hooks/useSettings';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 const Sidebar = () => {
@@ -18,6 +19,7 @@ const Sidebar = () => {
     const [isHovered, setIsHovered] = useState(false);
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const { user, loading } = useUser();
+    const { settings } = useSettings();
     const router = useRouter();
 
     const menuItems = [
@@ -30,7 +32,7 @@ const Sidebar = () => {
     const isExpanded = isHovered || isMobileOpen;
 
     useEffect(() => {
-        setIsMobileOpen(false);
+        setTimeout(() => setIsMobileOpen(false), 0);
     }, [pathname]);
 
     useEffect(() => {
@@ -82,7 +84,9 @@ toast.loading("Logging out...");
                     >
                         <LuMenu size={24} className="text-gray-900" />
                     </button>
-                    <h1 className="ml-2 text-lg font-semibold text-gray-900">Devskarnel CRM</h1>
+                    <h1 className="ml-2 text-lg font-semibold text-gray-900 truncate">
+                        {settings?.workspaceName || "Devskarnel CRM"}
+                    </h1>
                 </div>
 
                 {/* Mobile Overlay */}
@@ -118,10 +122,10 @@ toast.loading("Logging out...");
                                 <Image loading='eager' src="/logo/dklogo.png" alt="Devskarnel CRM" width={40} height={40} />
                             </div>
 
-                            <div className={`flex flex-col overflow-hidden whitespace-nowrap transition-all duration-300 ${isExpanded ? 'opacity-100 w-32' : 'opacity-0 w-0'
+                            <div className={`flex flex-col overflow-hidden whitespace-nowrap transition-all duration-300 ${isExpanded ? 'opacity-100 w-36' : 'opacity-0 w-0'
                                 }`}>
-                                <h1 className="text-gray-900 font-bold text-lg tracking-tight">
-                                    Devskarnel
+                                <h1 className="text-gray-900 font-bold text-sm tracking-tight truncate">
+                                    {settings?.workspaceName || "Devskarnel"}
                                 </h1>
                             </div>
                         </div>
