@@ -30,9 +30,9 @@ export default function ClientLayout({ children }) {
         : "flex min-h-0 min-w-0 w-full max-w-full flex-1 flex-col overflow-x-clip";
 
     return (
-        <div className={rootClass}>
+        <div className={rootClass} suppressHydrationWarning>
             <Sidebar />
-            <main className={mainClass}>{children}</main>
+            <main className={mainClass} suppressHydrationWarning>{children}</main>
         </div>
     );
 }

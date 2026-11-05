@@ -42,6 +42,7 @@ export default function DashboardPage() {
     if (isLoading) {
         return (
             <div
+                suppressHydrationWarning
                 className={`min-h-0 w-full min-w-0 max-w-full overflow-x-clip bg-slate-50 ${inter.className}`}
             >
                 <div
@@ -76,6 +77,7 @@ export default function DashboardPage() {
 
     return (
         <div
+            suppressHydrationWarning
             className={`min-h-0 w-full min-w-0 max-w-full overflow-x-clip bg-linear-to-b from-slate-50 via-white to-slate-50/80 ${inter.className}`}
         >
             <div
@@ -110,7 +112,7 @@ export default function DashboardPage() {
                                 ? "Workspace snapshot — clients, pipeline, and activity."
                                 : "Sign in for live client metrics."}
                         </p>
-                        <p className="mt-2 text-[11px] font-medium text-slate-400">
+                        <p className="mt-2 text-[11px] font-medium text-slate-400" suppressHydrationWarning>
                             {today}
                         </p>
                     </div>
