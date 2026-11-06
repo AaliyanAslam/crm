@@ -42,7 +42,7 @@
 
 
 import { NextResponse } from "next/server";
-import { ChatRoom, User } from "@/models";
+import { ChatRoom, User, Message } from "@/models";
 import { connectDB } from "@/config/sequelize";
 
 
@@ -79,12 +79,20 @@ export async function GET() {
     await connectDB();
     try {
         const rooms = await ChatRoom.findAll({
-            include: [{ model: User, as: 'creator', attributes: ['name'] }],
+            include: [
+                { model: User, as: 'creator', attributes: ['name', 'email'] },
+                {
+                    model: Message,
+                    as: 'messages',
+                    attributes: ['id', 'text', 'createdAt'],
+                    include: [{ model: User, as: 'sender', attributes: ['name'] }]
+                }
+            ],
             order: [['createdAt', 'DESC']]
         });
         return NextResponse.json({ success: true, rooms });
     } catch (error) {
-        return NextResponse.json({ success: false , error : error.message });
-
+        console.error("GET rooms error:", error);
+        return NextResponse.json({ success: false, error: error.message });
     }
 }

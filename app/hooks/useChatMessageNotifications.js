@@ -14,7 +14,10 @@ export function useChatMessageNotifications(roomId, currentUserId) {
 
     useEffect(() => {
         if (typeof Notification === "undefined") return;
-        setPermission(Notification.permission);
+        const timer = setTimeout(() => {
+            setPermission(Notification.permission);
+        }, 0);
+        return () => clearTimeout(timer);
     }, []);
 
     useEffect(() => {

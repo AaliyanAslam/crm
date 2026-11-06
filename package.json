@@ -9,7 +9,8 @@
     "lint": "eslint",
     "seed:clients": "node scripts/seedClients.mjs",
     "seed:projects": "node scripts/seedProjects.mjs",
-    "seed:boards": "node scripts/seedBoards.mjs"
+    "seed:boards": "node scripts/seedBoards.mjs",
+    "seed:chats": "node scripts/seedChats.mjs"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",

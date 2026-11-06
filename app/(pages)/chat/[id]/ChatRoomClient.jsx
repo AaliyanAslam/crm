@@ -18,7 +18,6 @@ import { useUser } from "@/app/hooks/useUser";
 import { useChatMessageNotifications } from "@/app/hooks/useChatMessageNotifications";
 import {
     Send,
-    Paperclip,
     Smile,
     Bell,
     BellOff,
@@ -32,12 +31,11 @@ import {
     Info,
     Copy,
     Check,
+    Hash,
+    Users,
 } from "lucide-react";
-import { inter, urbanist } from "@/app/fonts";
+import { inter } from "@/app/fonts";
 import gsap from "gsap";
-
-const TEAL = "#0d9488";
-const TEAL_SOFT = "#ccfbf1";
 
 const EMOJI_GRID = [
     "😀", "😃", "😄", "😁", "😅", "😂", "🤣", "😊", "😇", "🙂", "😉", "😍",
@@ -45,6 +43,32 @@ const EMOJI_GRID = [
     "👎", "👏", "🙏", "💪", "🔥", "✨", "💯", "❤️", "🎉", "👋", "✅", "⭐",
     "📝", "📎", "☕", "🚀",
 ];
+
+const AVATAR_COLORS = [
+    "bg-indigo-100 text-indigo-700 border-indigo-200",
+    "bg-emerald-100 text-emerald-700 border-emerald-200",
+    "bg-sky-100 text-sky-700 border-sky-200",
+    "bg-amber-100 text-amber-700 border-amber-200",
+    "bg-rose-100 text-rose-700 border-rose-200",
+    "bg-violet-100 text-violet-700 border-violet-200",
+];
+
+const getInitials = (name) => {
+    if (!name) return "U";
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+};
+
+const getAvatarColorClass = (name) => {
+    if (!name) return AVATAR_COLORS[0];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+        hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const idx = Math.abs(hash) % AVATAR_COLORS.length;
+    return AVATAR_COLORS[idx];
+};
 
 const startOfDay = (d) =>
     new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
@@ -58,10 +82,15 @@ const parseMsgDate = (dateString) => {
 const formatFullTimestamp = (dateString) => {
     const d = parseMsgDate(dateString);
     if (!d) return "—";
-    return d.toLocaleString("en-GB", {
-        weekday: "long", day: "numeric", month: "long",
-        year: "numeric", hour: "2-digit", minute: "2-digit",
-        second: "2-digit", hour12: true,
+    return d.toLocaleString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
     });
 };
 
@@ -69,15 +98,18 @@ const formatMessageMetaLine = (dateString) => {
     const d = parseMsgDate(dateString);
     if (!d) return "Just now";
     const now = new Date();
-    const timePart = d.toLocaleTimeString("en-GB", {
-        hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true,
+    const timePart = d.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
     });
     if (startOfDay(d) === startOfDay(now)) return `Today · ${timePart}`;
     const y = new Date(now);
     y.setDate(y.getDate() - 1);
     if (startOfDay(d) === startOfDay(y)) return `Yesterday · ${timePart}`;
-    const datePart = d.toLocaleDateString("en-GB", {
-        weekday: "short", day: "numeric", month: "short", year: "numeric",
+    const datePart = d.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
     });
     return `${datePart} · ${timePart}`;
 };
@@ -88,8 +120,11 @@ const formatDayDividerOnly = (d) => {
     const y = new Date(now);
     y.setDate(y.getDate() - 1);
     if (startOfDay(d) === startOfDay(y)) return "Yesterday";
-    return d.toLocaleDateString("en-GB", {
-        weekday: "long", day: "numeric", month: "long", year: "numeric",
+    return d.toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        year: "numeric",
     });
 };
 
@@ -104,12 +139,19 @@ const getDayDividerLabel = (dateString, prevDateString) => {
 
 const roomsFetcher = (url) => fetch(url).then((res) => res.json());
 
-const renderWithMentions = (text) => {
+const renderWithMentions = (text, isOwn) => {
     if (!text) return null;
     const parts = String(text).split(/(@[\w.-]+)/g);
     return parts.map((part, i) =>
         part.startsWith("@") ? (
-            <span key={i} className="font-semibold" style={{ color: TEAL }}>{part}</span>
+            <span
+                key={i}
+                className={`font-semibold underline decoration-transparent transition-colors ${
+                    isOwn ? "text-indigo-200" : "text-indigo-600"
+                }`}
+            >
+                {part}
+            </span>
         ) : (
             <span key={i}>{part}</span>
         )
@@ -118,14 +160,14 @@ const renderWithMentions = (text) => {
 
 /* ─── Context Menu ───────────────────────────────────────────────── */
 const MENU_ITEMS_OWN = [
-    { id: "edit", icon: Pencil, label: "Edit message", danger: false },
-    { id: "copy", icon: Copy, label: "Copy text", danger: false },
-    { id: "details", icon: Info, label: "View details", danger: false },
+    { id: "copy", icon: Copy, label: "Copy Text", danger: false },
+    { id: "edit", icon: Pencil, label: "Edit Message", danger: false },
+    { id: "details", icon: Info, label: "Message Info", danger: false },
     { id: "delete", icon: Trash2, label: "Delete", danger: true },
 ];
 const MENU_ITEMS_OTHER = [
-    { id: "copy", icon: Copy, label: "Copy text", danger: false },
-    { id: "details", icon: Info, label: "View details", danger: false },
+    { id: "copy", icon: Copy, label: "Copy Text", danger: false },
+    { id: "details", icon: Info, label: "Message Info", danger: false },
 ];
 
 function ContextMenu({ isOwn, position, onClose, onAction }) {
@@ -134,23 +176,24 @@ function ContextMenu({ isOwn, position, onClose, onAction }) {
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
-        setMounted(true);
+        const timer = setTimeout(() => setMounted(true), 0);
+        return () => clearTimeout(timer);
     }, []);
 
     useLayoutEffect(() => {
         if (!menuRef.current) return;
         gsap.fromTo(
             menuRef.current,
-            { opacity: 0, scale: 0.88, y: isOwn ? 6 : -6, filter: "blur(6px)" },
-            { opacity: 1, scale: 1, y: 0, filter: "blur(0px)", duration: 0.22, ease: "back.out(1.6)", clearProps: "filter" }
+            { opacity: 0, scale: 0.9, y: isOwn ? 4 : -4 },
+            { opacity: 1, scale: 1, y: 0, duration: 0.18, ease: "power2.out" }
         );
     }, [isOwn]);
 
     const close = useCallback(() => {
         if (!menuRef.current) { onClose(); return; }
         gsap.to(menuRef.current, {
-            opacity: 0, scale: 0.9, y: isOwn ? 4 : -4,
-            duration: 0.15, ease: "power2.in",
+            opacity: 0, scale: 0.94, y: isOwn ? 2 : -2,
+            duration: 0.12, ease: "power2.in",
             onComplete: onClose,
         });
     }, [onClose, isOwn]);
@@ -168,12 +211,11 @@ function ContextMenu({ isOwn, position, onClose, onAction }) {
     const menuContent = (
         <div
             ref={menuRef}
-            className={`${urbanist.className} fixed z-50 min-w-42 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/98 py-1.5 shadow-2xl shadow-slate-300/30 ring-1 ring-slate-100/80 backdrop-blur-md ${isOwn ? "origin-bottom-right" : "origin-bottom-left"
-                }`}
+            className={`fixed z-50 min-w-40 overflow-hidden rounded-xl border border-zinc-200 bg-white p-1 shadow-xl ring-1 ring-zinc-950/5 ${inter.className}`}
             style={{
                 left: isOwn ? "auto" : `${position.left}px`,
                 right: isOwn ? `${window.innerWidth - position.right}px` : "auto",
-                bottom: `${window.innerHeight - position.top + 8}px`,
+                bottom: `${window.innerHeight - position.top + 6}px`,
             }}
             role="menu"
         >
@@ -183,13 +225,14 @@ function ContextMenu({ isOwn, position, onClose, onAction }) {
                     type="button"
                     role="menuitem"
                     onClick={() => { onAction(id); close(); }}
-                    className={`flex w-full items-center gap-3 px-3.5 py-2.5 text-[13.5px] font-medium transition-colors ${danger
-                        ? "text-red-500 hover:bg-red-50/80"
-                        : "text-slate-700 hover:bg-slate-50/90"
-                        } ${idx > 0 && danger ? "mt-0.5 border-t border-slate-100" : ""}`}
+                    className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                        danger
+                            ? "text-rose-600 hover:bg-rose-50"
+                            : "text-zinc-700 hover:bg-zinc-100"
+                    } ${idx > 0 && danger ? "mt-0.5 border-t border-zinc-100" : ""}`}
                 >
-                    <Icon size={15} strokeWidth={2} className={danger ? "text-red-400" : "text-slate-400"} />
-                    {label}
+                    <Icon className="h-3.5 w-3.5" />
+                    <span>{label}</span>
                 </button>
             ))}
         </div>
@@ -199,7 +242,7 @@ function ContextMenu({ isOwn, position, onClose, onAction }) {
 }
 
 /* ─── Single Message Item ────────────────────────────────────────── */
-function MessageItem({ msg, isOwn, user }) {
+function MessageItem({ msg, isOwn }) {
     const bubbleRef = useRef(null);
     const actionRef = useRef(null);
     const buttonRef = useRef(null);
@@ -212,21 +255,16 @@ function MessageItem({ msg, isOwn, user }) {
     const displayName = isOwn ? "You" : msg.sender?.name || "Team member";
     const metaLine = formatMessageMetaLine(msg.createdAt);
     const fullTs = formatFullTimestamp(msg.createdAt);
+    const initials = getInitials(msg.sender?.name || "Team member");
+    const avatarColor = getAvatarColorClass(msg.sender?.name || "");
 
-    /* Build reusable hover timeline once */
     useLayoutEffect(() => {
         if (!bubbleRef.current || !actionRef.current) return;
-
-        const slideX = isOwn ? 5 : -5;
-
         hoverTl.current = gsap.timeline({ paused: true })
-            .to(bubbleRef.current, {
-                x: slideX, duration: 0.28, ease: "power2.out",
-            }, 0)
             .to(actionRef.current, {
                 opacity: 1, scale: 1, x: 0,
-                duration: 0.22, ease: "back.out(1.4)",
-            }, 0.04);
+                duration: 0.18, ease: "power2.out",
+            }, 0);
 
         return () => hoverTl.current?.kill();
     }, [isOwn]);
@@ -237,17 +275,14 @@ function MessageItem({ msg, isOwn, user }) {
         hoverTl.current?.reverse();
     }, [menuOpen]);
 
-    /* When menu closes, reverse animation if not hovering */
     const handleMenuClose = useCallback(() => {
         setMenuOpen(false);
         setButtonPosition(null);
-        // Check if mouse is still on the message item
         if (wrapRef.current && !wrapRef.current.matches(":hover")) {
             hoverTl.current?.reverse();
         }
     }, []);
 
-    /* Calculate button position when menu opens */
     useLayoutEffect(() => {
         if (!menuOpen || !buttonRef.current) {
             setButtonPosition(null);
@@ -268,103 +303,99 @@ function MessageItem({ msg, isOwn, user }) {
                 await navigator.clipboard.writeText(msg.text || "");
                 setCopied(true);
                 setTimeout(() => setCopied(false), 1800);
-            } catch { }
+            } catch { /* ignore */ }
             return;
         }
-        // Pass action to parent component through callback
         if (msg.onAction) {
             msg.onAction(id, msg);
         }
     }, [msg]);
 
-    /* Action button: opposite side of bubble */
-    const ActionBtn = () => (
-        <div
-            ref={actionRef}
-            className={`relative flex shrink-0 items-center self-end mb-1 ${isOwn ? "order-first mr-1" : "order-last ml-1"
-                }`}
-            style={!menuOpen ? { opacity: 50, scale: 0.8, x: isOwn ? 6 : -6 } : undefined}
-        >
-            <button
-                ref={buttonRef}
-                type="button"
-                onClick={() => setMenuOpen((o) => !o)}
-                className={`flex h-8 w-8 items-center justify-center rounded-full border border-slate-200/80 bg-white text-slate-400 shadow-md shadow-slate-200/40 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 ${menuOpen ? "border-teal-200 bg-teal-50 text-teal-600" : ""
-                    }`}
-                aria-label="Message actions"
-                aria-expanded={menuOpen}
-            >
-                {copied
-                    ? <Check size={14} strokeWidth={2.5} className="text-teal-500" />
-                    : <MoreHorizontal size={15} strokeWidth={2} />
-                }
-            </button>
-
-            {menuOpen && buttonPosition && (
-                <ContextMenu
-                    isOwn={isOwn}
-                    position={buttonPosition}
-                    onClose={handleMenuClose}
-                    onAction={handleAction}
-                />
-            )}
-        </div>
-    );
-
     return (
         <li
             ref={wrapRef}
             data-message-item
-            className={`flex items-end gap-2 ${isOwn ? "flex-row-reverse" : "flex-row"}`}
+            className={`flex items-end gap-2.5 ${isOwn ? "flex-row-reverse" : "flex-row"}`}
             onMouseEnter={onEnter}
             onMouseLeave={onLeave}
         >
-            {/* Avatar — others only */}
+            {/* Avatar — other members */}
             {!isOwn && (
-                <div className="mb-1 h-8 w-8 shrink-0 overflow-hidden rounded-full ring-2 ring-white shadow-md shadow-slate-200/50">
-                    <img
-                        src={`${msg.sender.image || "https://w7.pngwing.com/pngs/490/157/png-transparent-male-avatar-boy-face-man-user-flat-classy-users-icon.png"}`}
-                        alt=""
-                        className="h-full w-full object-cover"
-                    />
+                <div
+                    className={`mb-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border text-[10px] font-bold shadow-xs ${avatarColor}`}
+                    title={displayName}
+                >
+                    {initials}
                 </div>
             )}
 
-            {/* Bubble column */}
+            {/* Bubble Column */}
             <div
-                className={`flex min-w-0 max-w-[78%] flex-col gap-1 sm:max-w-[72%] ${isOwn ? "items-end" : "items-start"
-                    }`}
+                className={`flex min-w-0 max-w-[80%] flex-col gap-1 sm:max-w-[70%] ${
+                    isOwn ? "items-end" : "items-start"
+                }`}
             >
-
-
-                <div ref={bubbleRef} className="relative">
+                <div ref={bubbleRef} className="relative max-w-full">
                     <div
-                        className={`rounded-[18px] px-4 py-2.5 text-[14px] leading-relaxed text-slate-800 antialiased wrap-anywhere sm:rounded-[20px] sm:text-[14.5px] ${isOwn
-                            ? "rounded-br-[6px] bg-linear-to-br from-emerald-50/80 to-green-100/90 ring-1 ring-violet-200/25 "
-                            : "rounded-bl-[6px] bg-linear-to-br from-gray-100/90 to-gray-200/90 border border-slate-200/40 bg-white shadow-md shadow-slate-200/30 ring-1 ring-white/80"
-                            }`}
+                        className={`rounded-2xl px-3.5 py-2 text-xs sm:text-sm leading-relaxed antialiased break-words [overflow-wrap:anywhere] shadow-xs ${
+                            isOwn
+                                ? "rounded-br-xs bg-zinc-900 text-white"
+                                : "rounded-bl-xs border border-zinc-200/90 bg-white text-zinc-900"
+                        }`}
                     >
-                        {renderWithMentions(msg.text)}
-
+                        {renderWithMentions(msg.text, isOwn)}
                     </div>
                 </div>
 
                 <time
                     dateTime={msg.createdAt || undefined}
                     title={fullTs}
-                    className={`flex items-center gap-1 px-1 text-[10.5px] tabular-nums leading-none text-slate-400 ${isOwn ? "flex-row-reverse" : ""}`}
+                    className={`flex items-center gap-1.5 px-1 text-[10px] tabular-nums text-zinc-400 ${
+                        isOwn ? "flex-row-reverse" : ""
+                    }`}
                 >
-                    <Clock className="shrink-0 opacity-60" size={11} strokeWidth={2} aria-hidden />
-                    <span className={`px-1 text-[11.5px] font-semibold tracking-tight text-slate-500 ${isOwn ? "text-right" : "text-left"}`}>
+                    <Clock className="h-2.5 w-2.5 opacity-60" />
+                    <span className="font-semibold text-zinc-500">
                         {displayName}
                     </span>
                     <span>{metaLine}</span>
-                    {msg.isEdited && <span className="text-slate-400 italic text-[10px]">(edited)</span>}
+                    {msg.isEdited && <span className="italic text-[9px]">(edited)</span>}
                 </time>
             </div>
 
-            {/* Floating action button */}
-            <ActionBtn />
+            {/* Inline Action Button */}
+            <div
+                ref={actionRef}
+                className={`relative flex shrink-0 items-center self-end mb-1 opacity-0 transition-opacity ${
+                    isOwn ? "order-first mr-1" : "order-last ml-1"
+                }`}
+            >
+                <button
+                    ref={buttonRef}
+                    type="button"
+                    onClick={() => setMenuOpen((o) => !o)}
+                    className={`flex h-7 w-7 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-400 shadow-xs hover:border-zinc-300 hover:bg-zinc-50 hover:text-zinc-700 transition-colors ${
+                        menuOpen ? "border-zinc-900 bg-zinc-100 text-zinc-900" : ""
+                    }`}
+                    aria-label="Message actions"
+                    aria-expanded={menuOpen}
+                >
+                    {copied ? (
+                        <Check className="h-3.5 w-3.5 text-emerald-600" />
+                    ) : (
+                        <MoreHorizontal className="h-3.5 w-3.5" />
+                    )}
+                </button>
+
+                {menuOpen && buttonPosition && (
+                    <ContextMenu
+                        isOwn={isOwn}
+                        position={buttonPosition}
+                        onClose={handleMenuClose}
+                        onAction={handleAction}
+                    />
+                )}
+            </div>
         </li>
     );
 }
@@ -377,25 +408,31 @@ export default function ChatRoomClient({ roomId: roomIdProp, embedded = false })
     const { data: roomsPayload } = useSWR(
         roomId ? "/api/chat/rooms" : null,
         roomsFetcher,
-        { revalidateOnFocus: true, dedupingInterval: 20_000 }
+        { revalidateOnFocus: true, dedupingInterval: 15_000 }
     );
+
     const resolvedRoomName = useMemo(() => {
-        const list = roomsPayload?.rooms;
-        if (!list || !roomId) return null;
-        const hit = list.find((r) => String(r.room_id) === String(roomId));
-        return hit?.name ?? null;
+        const r = roomsPayload?.rooms?.find(
+            (room) => String(room.room_id) === String(roomId)
+        );
+        return r?.name ?? null;
     }, [roomsPayload, roomId]);
 
     const socket = useSocket();
-    const {
-        toast, dismissToast, notifyIncomingMessage,
-        permission: notifyPermission, requestBrowserPermission, notificationsSupported,
-    } = useChatMessageNotifications(roomId, user?.user_id);
-
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState("");
     const [emojiOpen, setEmojiOpen] = useState(false);
     const [activeTab, setActiveTab] = useState("messages");
+
+    const {
+        toast,
+        dismissToast,
+        notifyIncomingMessage,
+        permission: notifyPermission,
+        requestBrowserPermission,
+        notificationsSupported,
+    } = useChatMessageNotifications(roomId, user?.user_id);
+
     const [editingMessage, setEditingMessage] = useState(null);
     const [editText, setEditText] = useState("");
     const [detailsMessage, setDetailsMessage] = useState(null);
@@ -408,24 +445,26 @@ export default function ChatRoomClient({ roomId: roomIdProp, embedded = false })
     const participantsPanelRef = useRef(null);
     const messagesListRef = useRef(null);
     const participantsListRef = useRef(null);
-    const prevMessageCountRef = useRef(0);
-    const prevParticipantsKeyRef = useRef("");
-    const participantsTabPrimedRef = useRef(false);
 
+    // Fetch initial chat history
     useEffect(() => {
         const fetchHistory = async () => {
             try {
                 const res = await fetch(`/api/chat/history?room_id=${roomId}`);
                 const data = await res.json();
                 if (data.success) setMessages(data.history || []);
-            } catch (err) { console.error("Failed to load history", err); }
+            } catch (err) {
+                console.error("Failed to load history", err);
+            }
         };
         if (roomId) fetchHistory();
     }, [roomId]);
 
+    // Socket.io Realtime listeners
     useEffect(() => {
         if (!socket || !roomId) return;
         const room = String(roomId);
+
         const onReceive = (newMsg) => {
             if (!newMsg || String(newMsg.room_id) !== room) return;
             setMessages((prev) => {
@@ -435,22 +474,27 @@ export default function ChatRoomClient({ roomId: roomIdProp, embedded = false })
                 return [...prev, newMsg];
             });
         };
+
         const onUpdateMsg = (updatedMsg) => {
             if (!updatedMsg || String(updatedMsg.room_id) !== room) return;
             setMessages((prev) =>
                 prev.map((m) => m.id === updatedMsg.id ? { ...m, ...updatedMsg } : m)
             );
         };
+
         const onDeleteMsg = (data) => {
             if (!data || String(data.room_id) !== room) return;
             setMessages((prev) => prev.filter((m) => m.id !== data.message_id));
         };
+
         const joinRoom = () => socket.emit("join_room", room);
         joinRoom();
+
         socket.on("connect", joinRoom);
         socket.on("receive_msg", onReceive);
         socket.on("update_msg", onUpdateMsg);
         socket.on("delete_msg", onDeleteMsg);
+
         return () => {
             socket.off("connect", joinRoom);
             socket.off("receive_msg", onReceive);
@@ -460,6 +504,7 @@ export default function ChatRoomClient({ roomId: roomIdProp, embedded = false })
         };
     }, [socket, roomId, notifyIncomingMessage]);
 
+    // Scroll to bottom on new message
     useEffect(() => {
         scrollRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages, activeTab]);
@@ -478,23 +523,7 @@ export default function ChatRoomClient({ roomId: roomIdProp, embedded = false })
         });
     }, [input]);
 
-    useEffect(() => {
-        if (activeTab !== "messages") return;
-        const onKey = (e) => {
-            if (e.repeat) return;
-            const semicolon = e.code === "Semicolon" || e.key === ";" || e.key === "؛";
-            if (!semicolon) return;
-            const osMod = e.metaKey || e.ctrlKey ||
-                (typeof e.getModifierState === "function" &&
-                    (e.getModifierState("OS") || e.getModifierState("Super")));
-            if (!osMod) return;
-            e.preventDefault();
-            setEmojiOpen((open) => !open);
-        };
-        window.addEventListener("keydown", onKey, true);
-        return () => window.removeEventListener("keydown", onKey, true);
-    }, [activeTab]);
-
+    // Close emoji popover on click outside
     useEffect(() => {
         if (!emojiOpen) return;
         const onDown = (e) => {
@@ -510,7 +539,11 @@ export default function ChatRoomClient({ roomId: roomIdProp, embedded = false })
     const participants = useMemo(() => {
         const map = new Map();
         if (user?.user_id != null) {
-            map.set(user.user_id, { user_id: user.user_id, name: user.name || "You", isSelf: true });
+            map.set(user.user_id, {
+                user_id: user.user_id,
+                name: user.name || "You",
+                isSelf: true
+            });
         }
         for (const m of messages) {
             const uid = m.user_id;
@@ -518,85 +551,15 @@ export default function ChatRoomClient({ roomId: roomIdProp, embedded = false })
             if (!map.has(uid)) {
                 map.set(uid, {
                     user_id: uid,
-                    name: m.sender?.name || `Member ${uid}`,
+                    name: m.sender?.name || `User ${uid}`,
                     isSelf: uid === user?.user_id,
-                    image: m.sender?.image
                 });
             }
         }
-        return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+        return Array.from(map.values());
     }, [messages, user]);
 
-    const participantsKey = useMemo(
-        () => participants.map((p) => p.user_id).join(","),
-        [participants]
-    );
-
-    useLayoutEffect(() => {
-        const el = activeTab === "messages" ? messagesPanelRef.current : participantsPanelRef.current;
-        if (!el) return;
-        gsap.fromTo(el,
-            { opacity: 0, y: 14, filter: "blur(12px)" },
-            { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.5, ease: "power3.out", clearProps: "filter" }
-        );
-    }, [activeTab]);
-
-    useLayoutEffect(() => {
-        if (activeTab !== "messages") return;
-        const list = messagesListRef.current;
-        if (!list) return;
-        const items = list.querySelectorAll(":scope > li[data-message-item]");
-        const n = items.length;
-        if (n === 0) { prevMessageCountRef.current = 0; return; }
-        const prev = prevMessageCountRef.current;
-        if (n > prev) {
-            if (prev === 0) {
-                gsap.fromTo(items,
-                    { opacity: 0, y: 22, filter: "blur(8px)" },
-                    { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.42, stagger: 0.055, ease: "power2.out", clearProps: "filter" }
-                );
-            } else {
-                gsap.fromTo(items[n - 1],
-                    { opacity: 0, y: 16, scale: 0.97, filter: "blur(10px)" },
-                    { opacity: 1, y: 0, scale: 1, filter: "blur(0px)", duration: 0.45, ease: "back.out(1.35)", clearProps: "filter" }
-                );
-            }
-        }
-        prevMessageCountRef.current = n;
-    }, [messages, activeTab]);
-
-    useLayoutEffect(() => {
-        if (activeTab !== "participants") {
-            participantsTabPrimedRef.current = false; return;
-        }
-        const list = participantsListRef.current;
-        if (!list) return;
-        const items = list.querySelectorAll(":scope > li");
-        if (items.length === 0) return;
-        const keyChanged = prevParticipantsKeyRef.current !== participantsKey;
-        const shouldAnimate = !participantsTabPrimedRef.current || keyChanged;
-        prevParticipantsKeyRef.current = participantsKey;
-        participantsTabPrimedRef.current = true;
-        if (!shouldAnimate) return;
-        gsap.fromTo(items,
-            { opacity: 0, x: -16, filter: "blur(6px)" },
-            { opacity: 1, x: 0, filter: "blur(0px)", duration: 0.4, stagger: 0.075, ease: "power2.out", clearProps: "filter" }
-        );
-    }, [activeTab, participantsKey]);
-
-    const handleMessageAction = useCallback((action, msg) => {
-        if (action === "edit") {
-            setEditingMessage(msg);
-            setEditText(msg.text || "");
-        } else if (action === "delete") {
-            if (window.confirm("Delete this message? This cannot be undone.")) {
-                handleDeleteMessage(msg.id);
-            }
-        } else if (action === "details") {
-            setDetailsMessage(msg);
-        }
-    }, []);
-
+    // Declare handleDeleteMessage BEFORE handleMessageAction to avoid access-before-declaration
     const handleDeleteMessage = useCallback(async (messageId) => {
         try {
             const response = await fetch(`/api/chat/messages/${messageId}`, {
@@ -612,6 +575,19 @@ export default function ChatRoomClient({ roomId: roomIdProp, embedded = false })
         }
     }, [socket, roomId]);
 
+    const handleMessageAction = useCallback((action, msg) => {
+        if (action === "edit") {
+            setEditingMessage(msg);
+            setEditText(msg.text || "");
+        } else if (action === "delete") {
+            if (window.confirm("Delete this message? This cannot be undone.")) {
+                handleDeleteMessage(msg.id);
+            }
+        } else if (action === "details") {
+            setDetailsMessage(msg);
+        }
+    }, [handleDeleteMessage]);
+
     const handleSaveEdit = useCallback(async () => {
         if (!editingMessage || !editText.trim()) return;
         setIsSavingEdit(true);
@@ -622,11 +598,16 @@ export default function ChatRoomClient({ roomId: roomIdProp, embedded = false })
                 body: JSON.stringify({ text: editText.trim() }),
             });
             if (response.ok) {
-                const updatedMsg = await response.json();
+                const updated = await response.json();
                 setMessages((prev) =>
-                    prev.map((m) => m.id === editingMessage.id ? { ...m, text: editText.trim() } : m)
+                    prev.map((m) => m.id === editingMessage.id ? { ...m, text: editText.trim(), isEdited: true } : m)
                 );
-                socket?.emit("update_msg", { ...editingMessage, text: editText.trim(), room_id: String(roomId) });
+                socket?.emit("update_msg", {
+                    id: editingMessage.id,
+                    room_id: String(roomId),
+                    text: editText.trim(),
+                    isEdited: true,
+                });
                 setEditingMessage(null);
                 setEditText("");
             }
@@ -647,12 +628,19 @@ export default function ChatRoomClient({ roomId: roomIdProp, embedded = false })
         setEmojiOpen(false);
     };
 
+    const handleKeyDown = (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            handleSend(e);
+        }
+    };
+
     const canSend = Boolean(input.trim() && socket?.connected && user);
-    const roomTitle = resolvedRoomName || "Group Chat";
+    const roomTitle = resolvedRoomName ? `#${resolvedRoomName}` : "Team Channel";
 
     if (!roomId) {
         return (
-            <div className={`flex min-h-[40vh] flex-1 items-center justify-center text-sm text-slate-500 ${inter.className}`}>
+            <div className={`flex min-h-[40vh] flex-1 items-center justify-center text-xs text-zinc-500 ${inter.className}`}>
                 Missing conversation.
             </div>
         );
@@ -660,320 +648,312 @@ export default function ChatRoomClient({ roomId: roomIdProp, embedded = false })
 
     return (
         <div
-            className={
-                embedded
-                    ? `relative flex h-full min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-clip overflow-y-hidden bg-linear-to-b from-slate-100 via-slate-50 to-teal-50/30 px-2 pb-1 pt-0 sm:px-3 sm:pb-2 sm:pt-2 md:px-4 ${inter.className}`
-                    : `relative flex min-h-screen justify-center overflow-x-clip overflow-y-auto bg-linear-to-b from-slate-100 via-slate-50 to-teal-50/30 px-3 py-4 sm:px-6 sm:py-8 ${inter.className}`
-            }
+            className={`flex h-full min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-hidden bg-white ${inter.className}`}
         >
-            <div
-                className={
-                    embedded
-                        ? "pointer-events-none absolute inset-0 bg-[radial-linear(ellipse_75%_45%_at_50%_-8%,rgba(13,148,136,0.09),transparent)]"
-                        : "pointer-events-none fixed inset-0 bg-[radial-linear(ellipse_75%_45%_at_50%_-8%,rgba(13,148,136,0.09),transparent)]"
-                }
-                aria-hidden
-            />
-
-            <div
-                className={
-                    embedded
-                        ? "relative mx-auto flex h-full min-h-0 w-full max-w-full flex-1 flex-col overflow-hidden rounded-lg border border-slate-200/70 bg-white/95 shadow-sm ring-1 ring-slate-200/40 backdrop-blur-sm sm:rounded-xl md:max-w-md md:rounded-2xl md:shadow-[0_20px_40px_-14px_rgba(15,23,42,0.1)] lg:max-w-4xl"
-                        : "relative flex h-[calc(100dvh-2rem)] w-full max-w-100 flex-col overflow-hidden rounded-[28px] border border-white/70 bg-white/95 shadow-[0_32px_64px_-16px_rgba(15,23,42,0.18),0_0_0_1px_rgba(15,23,42,0.04)] ring-1 ring-slate-200/50 backdrop-blur-sm sm:h-[min(680px,calc(100dvh-4rem))] sm:max-w-105"
-                }
-            >
-                {/* ── Header ── */}
-                <header className="shrink-0 border-b border-slate-100/90 bg-linear-to-b from-white via-white to-slate-50/40 px-3 pb-2.5 pt-3 sm:px-4 sm:pb-3 sm:pt-3.5">
-                    <div className="flex items-start gap-2.5 sm:gap-3">
+            {/* Header */}
+            <header className="shrink-0 border-b border-zinc-200/80 bg-white px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
                         <Link
                             href="/chats"
-                            className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 ${embedded ? "md:hidden" : ""}`}
-                            aria-label="Back to messages"
+                            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-200 text-zinc-500 hover:bg-zinc-100 transition-colors ${
+                                embedded ? "md:hidden" : ""
+                            }`}
+                            aria-label="Back to channels"
                         >
-                            <ChevronLeft size={20} strokeWidth={2} />
+                            <ChevronLeft className="h-4 w-4" />
                         </Link>
-                        <div className="min-w-0 flex-1">
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
-                                Team chat
-                            </p>
-                            <h1 className="mt-0.5 truncate text-base font-semibold capitalize tracking-tight text-slate-900 sm:text-lg">
-                                {roomTitle}
-                            </h1>
-                            {user && (
-                                <p className="mt-1 text-[12.5px] leading-snug text-slate-500">
-                                    Signed in as{" "}
-                                    <span className="font-semibold capitalize" style={{ color: TEAL }}>
-                                        {user.name?.trim() || "You"}
-                                    </span>
-                                </p>
-                            )}
+
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-zinc-100 border border-zinc-200 text-zinc-800">
+                            <Hash className="h-4 w-4 stroke-[2.2]" />
                         </div>
+
+                        <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                                <h1 className="truncate text-sm sm:text-base font-bold text-zinc-900">
+                                    {roomTitle}
+                                </h1>
+
+                                {/* Socket connection badge */}
+                                {socket?.connected ? (
+                                    <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 ring-1 ring-emerald-200/60">
+                                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                        Live
+                                    </span>
+                                ) : (
+                                    <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 ring-1 ring-amber-200/60">
+                                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                                        Connecting
+                                    </span>
+                                )}
+                            </div>
+
+                            <p className="truncate text-[11px] text-zinc-400">
+                                {participants.length} {participants.length === 1 ? "member" : "members"} in room
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Right: Tab switch & Notification Bell */}
+                    <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex rounded-lg border border-zinc-200 bg-zinc-50/70 p-0.5 text-xs font-semibold">
+                            <button
+                                type="button"
+                                onClick={() => setActiveTab("messages")}
+                                className={`rounded-md px-2.5 py-1 transition-all ${
+                                    activeTab === "messages"
+                                        ? "bg-white text-zinc-900 shadow-xs"
+                                        : "text-zinc-500 hover:text-zinc-900"
+                                }`}
+                            >
+                                Messages
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setActiveTab("participants")}
+                                className={`flex items-center gap-1 rounded-md px-2.5 py-1 transition-all ${
+                                    activeTab === "participants"
+                                        ? "bg-white text-zinc-900 shadow-xs"
+                                        : "text-zinc-500 hover:text-zinc-900"
+                                }`}
+                            >
+                                <Users className="h-3 w-3" />
+                                <span>{participants.length}</span>
+                            </button>
+                        </div>
+
                         {notificationsSupported && (
                             <button
                                 type="button"
                                 onClick={() => requestBrowserPermission()}
-                                className={`mt-0.5 shrink-0 rounded-xl p-2 shadow-sm transition-all ${notifyPermission === "granted"
-                                    ? "bg-teal-50 text-teal-700 ring-1 ring-teal-100"
-                                    : "bg-slate-100/90 text-slate-500 hover:bg-slate-200/80 hover:text-slate-700"
-                                    }`}
+                                className={`rounded-lg border p-1.5 transition-colors ${
+                                    notifyPermission === "granted"
+                                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                        : "border-zinc-200 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
+                                }`}
                                 title={
                                     notifyPermission === "granted"
-                                        ? "Background notifications on"
-                                        : notifyPermission === "denied"
-                                            ? "Notifications blocked — enable in browser settings"
-                                            : "Enable notifications when this tab is in the background"
+                                        ? "Notifications active"
+                                        : "Enable desktop notifications"
                                 }
-                                aria-label={notifyPermission === "granted" ? "Notifications enabled" : "Enable notifications"}
                             >
-                                {notifyPermission === "granted"
-                                    ? <Bell size={19} strokeWidth={2} />
-                                    : <BellOff size={19} strokeWidth={2} />
-                                }
+                                {notifyPermission === "granted" ? (
+                                    <Bell className="h-4 w-4" />
+                                ) : (
+                                    <BellOff className="h-4 w-4" />
+                                )}
                             </button>
                         )}
                     </div>
+                </div>
 
-                    {toast && (
-                        <div
-                            role="status"
-                            className="mt-3 flex gap-2 rounded-2xl border border-slate-200/80 bg-white/90 px-3.5 py-2.5 shadow-lg shadow-slate-200/40 backdrop-blur-sm"
-                        >
-                            <div className="min-w-0 flex-1">
-                                <p className="text-xs font-semibold text-teal-800">{toast.name}</p>
-                                <p className="mt-0.5 line-clamp-2 text-[13px] leading-snug text-slate-600">{toast.preview}</p>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={dismissToast}
-                                className="shrink-0 rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-                                aria-label="Dismiss notification"
-                            >
-                                <X size={15} />
-                            </button>
-                        </div>
-                    )}
-
-                    {/* Tab bar */}
-                    <div className="mt-3 flex rounded-full bg-slate-200/60 p-1 shadow-inner sm:mt-3.5" role="tablist">
-                        {["messages", "participants"].map((tab) => (
-                            <button
-                                key={tab}
-                                type="button"
-                                role="tab"
-                                aria-selected={activeTab === tab}
-                                onClick={() => setActiveTab(tab)}
-                                className={`flex-1 rounded-full py-2 text-[13px] font-semibold capitalize transition-all duration-200 ${activeTab === tab
-                                    ? "text-teal-900 shadow-sm ring-1 ring-slate-200/60"
-                                    : "text-slate-500 hover:text-slate-700"
-                                    }`}
-                                style={activeTab === tab ? { backgroundColor: TEAL_SOFT } : undefined}
-                            >
-                                {tab}
-                            </button>
-                        ))}
-                    </div>
-                </header>
-
-                {/* ── Messages Panel ── */}
-                {activeTab === "messages" ? (
-                    <div ref={messagesPanelRef} className="flex min-h-0 flex-1 flex-col">
-                        <div
-                            className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain bg-linear-to-b from-slate-50/90 to-white px-3 pb-3 pt-1 sm:px-4 md:px-5 [scrollbar-width:thin] [scrollbar-color:#cbd5e1_transparent]"
-                            style={{ WebkitOverflowScrolling: "touch" }}
-                        >
-                            {messages.length === 0 ? (
-                                <div className="flex h-full min-h-52 flex-col items-center justify-center px-6 text-center">
-                                    <div className="mb-4 flex h-13 w-13 items-center justify-center rounded-2xl bg-white shadow-md ring-1 ring-slate-100">
-                                        <MessageSquare className="text-teal-600" size={24} strokeWidth={1.75} />
-                                    </div>
-                                    <p className="text-sm font-semibold text-slate-600">No messages yet</p>
-                                    <p className="mt-1.5 max-w-55 text-xs leading-relaxed text-slate-400">
-                                        Say hello — your team will see messages here in real time.
-                                    </p>
-                                </div>
-                            ) : (
-                                <ul ref={messagesListRef} className="flex min-w-0 flex-col gap-3.5 py-2 sm:gap-4">
-                                    {messages.map((msg, index) => {
-                                        const isOwn = msg.user_id === user?.user_id;
-                                        const key = msg.id ?? `${msg.room_id}-${msg.createdAt}-${msg.text?.slice(0, 20)}`;
-                                        const prevMsg = messages[index - 1];
-                                        const dayLabel = getDayDividerLabel(msg.createdAt, prevMsg?.createdAt);
-                                        const msgWithAction = { ...msg, onAction: handleMessageAction };
-
-                                        return (
-                                            <Fragment key={key}>
-                                                {dayLabel && (
-                                                    <li className="flex list-none justify-center py-1" aria-hidden>
-                                                        <span className="rounded-full border border-slate-200/80 bg-white/90 px-3.5 py-1.5 text-[11px] font-semibold tracking-wide text-slate-500 shadow-sm shadow-slate-200/30">
-                                                            {dayLabel}
-                                                        </span>
-                                                    </li>
-                                                )}
-                                                <MessageItem
-                                                    msg={msgWithAction}
-                                                    isOwn={isOwn}
-                                                    user={user}
-                                                />
-                                            </Fragment>
-                                        );
-                                    })}
-                                </ul>
-                            )}
-                            <div ref={scrollRef} className="h-2 shrink-0" />
-                        </div>
-
-                        {/* ── Input bar ── */}
-                        <div className="shrink-0 border-t border-slate-100/90 bg-linear-to-t from-slate-50/95 to-white px-3 pb-[max(0.875rem,env(safe-area-inset-bottom,0px))] pt-2.5 sm:px-4 sm:pb-[max(1rem,env(safe-area-inset-bottom,0px))] sm:pt-3">
-                            <form onSubmit={handleSend} className="flex items-end gap-2 sm:gap-2.5">
-                                <div className="relative min-w-0 flex-1 rounded-2xl border border-slate-200/80 bg-white py-1 pl-3.5 pr-1.5 shadow-inner shadow-slate-100/80 ring-1 ring-slate-100/50 transition-all focus-within:border-teal-300/60 focus-within:shadow-[0_0_0_3px_rgba(13,148,136,0.12)] focus-within:ring-teal-100 sm:pl-4">
-                                    {emojiOpen && (
-                                        <div
-                                            ref={emojiPopoverRef}
-                                            className="absolute bottom-[calc(100%+8px)] left-0 right-0 z-50 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 p-2 shadow-2xl shadow-slate-300/30 ring-1 ring-slate-100/80 backdrop-blur-md"
-                                            role="dialog"
-                                            aria-label="Emoji picker"
-                                        >
-                                            <div className="max-h-44 overflow-y-auto [scrollbar-width:thin]">
-                                                <div className="grid grid-cols-8 gap-0.5 p-1">
-                                                    {EMOJI_GRID.map((em) => (
-                                                        <button
-                                                            key={em}
-                                                            type="button"
-                                                            className="flex h-9 w-9 items-center justify-center rounded-lg text-lg leading-none transition-colors hover:bg-slate-100 active:scale-95"
-                                                            onClick={() => { insertEmoji(em); setEmojiOpen(false); }}
-                                                        >
-                                                            {em}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                            <p className="border-t border-slate-100 bg-slate-50/50 px-2.5 py-2 text-[10px] leading-snug text-slate-400">
-                                                <span className="font-semibold text-slate-500">⊞ + ;</span> or{" "}
-                                                <span className="font-semibold text-slate-500">Ctrl + ;</span> · smile button
-                                            </p>
-                                        </div>
-                                    )}
-                                    <div className="flex items-center gap-1">
-                                        <input
-                                            ref={inputRef}
-                                            type="text"
-                                            value={input}
-                                            onChange={(e) => setInput(e.target.value)}
-                                            placeholder="Message the team…"
-                                            className="min-w-0 flex-1 bg-transparent py-2.5 pr-1 text-[14.5px] text-slate-800 outline-none placeholder:text-slate-400 sm:py-3"
-                                            autoComplete="off"
-                                        />
-                                        <div className="flex shrink-0 items-center gap-0.5 pr-0.5">
-                                            <button
-                                                type="button"
-                                                data-emoji-toggle
-                                                className={`rounded-xl p-2 transition-colors ${emojiOpen
-                                                    ? "bg-teal-50 text-teal-700 ring-1 ring-teal-100"
-                                                    : "text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-                                                    }`}
-                                                aria-label="Emoji picker"
-                                                aria-expanded={emojiOpen}
-                                                onClick={() => setEmojiOpen((o) => !o)}
-                                            >
-                                                <Smile size={19} strokeWidth={1.75} />
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className="rounded-xl p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
-                                                aria-label="Attach file"
-                                            >
-                                                <Paperclip size={19} strokeWidth={1.75} />
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                                <button
-                                    type="submit"
-                                    disabled={!canSend}
-                                    className="mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-teal-500 to-emerald-600 text-white shadow-lg shadow-teal-500/35 transition-all hover:from-teal-600 hover:to-emerald-700 hover:shadow-teal-500/45 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-35 disabled:shadow-none sm:h-11 sm:w-11"
-                                    aria-label="Send message"
-                                >
-                                    <Send size={18} className="-ml-0.5 translate-x-px" />
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-                ) : (
-                    /* ── Participants Panel ── */
+                {toast && (
                     <div
-                        ref={participantsPanelRef}
-                        className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain bg-linear-to-b from-slate-50/90 to-white px-3 pb-8 pt-3 sm:px-4 md:px-5"
+                        role="status"
+                        className="mt-2.5 flex items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs shadow-xs"
+                    >
+                        <p className="truncate text-zinc-700">
+                            <strong className="text-zinc-900">{toast.name}:</strong> {toast.preview}
+                        </p>
+                        <button
+                            type="button"
+                            onClick={dismissToast}
+                            className="rounded-md p-0.5 text-zinc-400 hover:text-zinc-700"
+                        >
+                            <X className="h-3.5 w-3.5" />
+                        </button>
+                    </div>
+                )}
+            </header>
+
+            {/* Messages Content */}
+            {activeTab === "messages" ? (
+                <div ref={messagesPanelRef} className="flex min-h-0 flex-1 flex-col">
+                    <div
+                        className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-4 [scrollbar-width:thin]"
                         style={{ WebkitOverflowScrolling: "touch" }}
                     >
-                        <p className="mb-3.5 px-0.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">
-                            In this room · {participants.length}
-                        </p>
-                        <ul ref={participantsListRef} className="flex flex-col gap-2">
-                            {participants.map((p) => (
+                        {messages.length === 0 ? (
+                            <div className="flex h-full min-h-52 flex-col items-center justify-center text-center p-6">
+                                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl border border-zinc-200 bg-zinc-50 text-zinc-400 shadow-xs">
+                                    <MessageSquare className="h-6 w-6" />
+                                </div>
+                                <h3 className="text-sm font-semibold text-zinc-800">
+                                    No messages in this channel yet
+                                </h3>
+                                <p className="mt-1 text-xs text-zinc-400 max-w-xs">
+                                    Start the conversation! Teammates in this room will see your messages in real time.
+                                </p>
+                            </div>
+                        ) : (
+                            <ul ref={messagesListRef} className="flex min-w-0 flex-col gap-3">
+                                {messages.map((msg, index) => {
+                                    const isOwn = msg.user_id === user?.user_id;
+                                    const key = msg.id ?? `${msg.room_id}-${msg.createdAt}-${index}`;
+                                    const prevMsg = messages[index - 1];
+                                    const dayLabel = getDayDividerLabel(msg.createdAt, prevMsg?.createdAt);
+                                    const msgWithAction = { ...msg, onAction: handleMessageAction };
+
+                                    return (
+                                        <Fragment key={key}>
+                                            {dayLabel && (
+                                                <li className="my-2 flex list-none items-center gap-3">
+                                                    <div className="h-px flex-1 bg-zinc-200/80" />
+                                                    <span className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 shadow-xs">
+                                                        {dayLabel}
+                                                    </span>
+                                                    <div className="h-px flex-1 bg-zinc-200/80" />
+                                                </li>
+                                            )}
+                                            <MessageItem
+                                                msg={msgWithAction}
+                                                isOwn={isOwn}
+                                            />
+                                        </Fragment>
+                                    );
+                                })}
+                            </ul>
+                        )}
+                        <div ref={scrollRef} className="h-2 shrink-0" />
+                    </div>
+
+                    {/* Input Bar */}
+                    <div className="shrink-0 border-t border-zinc-200/80 bg-white p-3 sm:px-4">
+                        <form onSubmit={handleSend} className="relative flex items-center gap-2">
+                            {/* Emoji Picker Popover */}
+                            {emojiOpen && (
+                                <div
+                                    ref={emojiPopoverRef}
+                                    className="absolute bottom-full left-0 mb-2 z-50 w-72 overflow-hidden rounded-2xl border border-zinc-200 bg-white p-2 shadow-2xl ring-1 ring-zinc-950/5"
+                                    role="dialog"
+                                    aria-label="Emoji picker"
+                                >
+                                    <div className="grid grid-cols-8 gap-1 p-1 max-h-48 overflow-y-auto [scrollbar-width:thin]">
+                                        {EMOJI_GRID.map((em) => (
+                                            <button
+                                                key={em}
+                                                type="button"
+                                                onClick={() => { insertEmoji(em); setEmojiOpen(false); }}
+                                                className="flex h-7 w-7 items-center justify-center rounded-lg text-base hover:bg-zinc-100 transition-colors"
+                                            >
+                                                {em}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="relative flex flex-1 items-center rounded-xl border border-zinc-200 bg-zinc-50/50 shadow-xs focus-within:border-zinc-900 focus-within:bg-white focus-within:ring-1 focus-within:ring-zinc-900 transition-all">
+                                <button
+                                    type="button"
+                                    data-emoji-toggle
+                                    onClick={() => setEmojiOpen((o) => !o)}
+                                    className="p-2 text-zinc-400 hover:text-zinc-700 transition-colors"
+                                    aria-label="Insert emoji"
+                                >
+                                    <Smile className="h-4 w-4" />
+                                </button>
+
+                                <input
+                                    ref={inputRef}
+                                    type="text"
+                                    value={input}
+                                    onChange={(e) => setInput(e.target.value)}
+                                    onKeyDown={handleKeyDown}
+                                    placeholder={`Message ${roomTitle}… (Enter to send)`}
+                                    className="min-w-0 flex-1 bg-transparent py-2.5 pr-2 text-xs sm:text-sm text-zinc-900 outline-none placeholder:text-zinc-400"
+                                />
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={!canSend}
+                                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-zinc-900 text-white shadow-xs hover:bg-zinc-800 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                aria-label="Send message"
+                            >
+                                <Send className="h-4 w-4" />
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            ) : (
+                /* Participants Panel */
+                <div
+                    ref={participantsPanelRef}
+                    className="min-h-0 flex-1 overflow-y-auto p-4 [scrollbar-width:thin]"
+                >
+                    <div className="flex items-center justify-between pb-3 border-b border-zinc-100">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                            Channel Members ({participants.length})
+                        </span>
+                    </div>
+
+                    <ul ref={participantsListRef} className="mt-3 space-y-2">
+                        {participants.map((p) => {
+                            const initials = getInitials(p.name);
+                            const avatarColor = getAvatarColorClass(p.name);
+
+                            return (
                                 <li
                                     key={p.user_id}
-                                    className="flex items-center gap-3 rounded-2xl border-b border-slate-200/70 bg-white/95 px-3.5 py-3 shadow-sm shadow-slate-200/30 ring-1 ring-white/60"
+                                    className="flex items-center gap-3 rounded-xl border border-zinc-200/80 bg-white p-3 shadow-xs"
                                 >
-                                    <div className="h-10 w-10 overflow-hidden rounded-full ring-2 ring-slate-100 shadow-sm">
-                                        <img
-                                            src={`${p.image || "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTPQHstFutlfl8tgZAtY8nDWucSWEvFM5AETQ&s"}`}
-                                            alt=""
-                                            className="h-full w-full object-cover"
-                                        />
+                                    <div
+                                        className={`flex h-9 w-9 items-center justify-center rounded-lg border text-xs font-bold ${avatarColor}`}
+                                    >
+                                        {initials}
                                     </div>
                                     <div className="min-w-0 flex-1">
-                                        <p className="truncate text-sm font-semibold capitalize text-slate-800" onClick={() => {
-                                            console.log(participants)
-
-                                        }}>
-                                            {p.name}
+                                        <div className="flex items-center gap-2">
+                                            <p className="truncate text-xs font-semibold text-zinc-900">
+                                                {p.name}
+                                            </p>
                                             {p.isSelf && (
-                                                <span className="ml-2 text-xs font-medium" style={{ color: TEAL }}>
+                                                <span className="rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-600">
                                                     You
                                                 </span>
                                             )}
-                                        </p>
+                                        </div>
+                                        <p className="text-[11px] text-zinc-400">Team Collaborator</p>
                                     </div>
                                 </li>
-                            ))}
-                        </ul>
-                        {participants.length === 0 && (
-                            <p className="py-12 text-center text-sm leading-relaxed text-slate-400">
-                                No one here yet. Send a message to appear in this list.
-                            </p>
-                        )}
-                    </div>
-                )}
-            </div>
+                            );
+                        })}
+                    </ul>
+                </div>
+            )}
 
             {/* Edit Message Modal */}
             {editingMessage && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 sm:p-6">
-                    <div className="w-full max-w-sm rounded-2xl border border-slate-200/80 bg-white shadow-xl ring-1 ring-slate-100/80">
-                        <div className="border-b border-slate-100 px-6 py-4">
-                            <h2 className="text-lg font-semibold text-slate-900">Edit Message</h2>
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div
+                        className="fixed inset-0 bg-zinc-950/40 backdrop-blur-xs"
+                        onClick={() => setEditingMessage(null)}
+                    />
+                    <div className="relative w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl ring-1 ring-zinc-950/10">
+                        <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
+                            <h3 className="text-sm font-semibold text-zinc-900">Edit Message</h3>
+                            <button
+                                onClick={() => setEditingMessage(null)}
+                                className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
                         </div>
-                        <div className="p-6">
+                        <div className="mt-3">
                             <textarea
                                 value={editText}
                                 onChange={(e) => setEditText(e.target.value)}
-                                className="w-full rounded-xl border border-slate-200/80 bg-white px-4 py-3 text-sm text-slate-800 outline-none focus:border-teal-300/60 focus:shadow-[0_0_0_3px_rgba(13,148,136,0.12)] focus:ring-teal-100"
-                                rows={10}
+                                className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 p-3 text-xs text-zinc-900 outline-none focus:border-zinc-900 focus:bg-white focus:ring-1 focus:ring-zinc-900 resize-none"
+                                rows={4}
                                 autoFocus
                             />
-                            <p className="mt-2 text-xs text-slate-400">
-                                {editText.length} characters
-                            </p>
                         </div>
-                        <div className="flex gap-3 border-t border-slate-100 px-6 py-4 sm:justify-end">
+                        <div className="flex justify-end gap-2 mt-3 pt-3 border-t border-zinc-100">
                             <button
                                 type="button"
-                                onClick={() => {
-                                    setEditingMessage(null);
-                                    setEditText("");
-                                }}
-                                disabled={isSavingEdit}
-                                className="rounded-lg px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+                                onClick={() => setEditingMessage(null)}
+                                className="rounded-xl border border-zinc-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-50"
                             >
                                 Cancel
                             </button>
@@ -981,9 +961,9 @@ export default function ChatRoomClient({ roomId: roomIdProp, embedded = false })
                                 type="button"
                                 onClick={handleSaveEdit}
                                 disabled={!editText.trim() || isSavingEdit}
-                                className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-50"
+                                className="rounded-xl bg-zinc-900 px-4 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800 disabled:opacity-50"
                             >
-                                {isSavingEdit ? "Saving..." : "Save"}
+                                {isSavingEdit ? "Saving…" : "Save Changes"}
                             </button>
                         </div>
                     </div>
@@ -992,44 +972,45 @@ export default function ChatRoomClient({ roomId: roomIdProp, embedded = false })
 
             {/* Message Details Modal */}
             {detailsMessage && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 sm:p-6">
-                    <div className="w-full max-w-sm rounded-2xl border border-slate-200/80 bg-white shadow-xl ring-1 ring-slate-100/80">
-                        <div className="border-b border-slate-100 px-6 py-4">
-                            <h2 className="text-lg font-semibold text-slate-900">Message Details</h2>
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div
+                        className="fixed inset-0 bg-zinc-950/40 backdrop-blur-xs"
+                        onClick={() => setDetailsMessage(null)}
+                    />
+                    <div className="relative w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl ring-1 ring-zinc-950/10">
+                        <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
+                            <h3 className="text-sm font-semibold text-zinc-900">Message Details</h3>
+                            <button
+                                onClick={() => setDetailsMessage(null)}
+                                className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
                         </div>
-                        <div className="space-y-4 p-6">
+                        <div className="mt-3 space-y-3">
                             <div>
-                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">From</p>
-                                <p className="mt-1.5 text-sm text-slate-800">
-                                    {detailsMessage.sender?.name || `User ${detailsMessage.user_id}`}
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Sender</span>
+                                <p className="text-xs font-semibold text-zinc-900 mt-0.5">
+                                    {detailsMessage.sender?.name || `User #${detailsMessage.user_id}`}
                                 </p>
                             </div>
                             <div>
-                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Sent</p>
-                                <p className="mt-1.5 text-sm text-slate-800">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Timestamp</span>
+                                <p className="text-xs text-zinc-600 mt-0.5">
                                     {formatFullTimestamp(detailsMessage.createdAt)}
                                 </p>
                             </div>
-                            {detailsMessage.updatedAt && detailsMessage.updatedAt !== detailsMessage.createdAt && (
-                                <div>
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Edited</p>
-                                    <p className="mt-1.5 text-sm text-slate-800">
-                                        {formatFullTimestamp(detailsMessage.updatedAt)}
-                                    </p>
-                                </div>
-                            )}
                             <div>
-                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Message</p>
-                                <p className="mt-1.5 rounded-lg bg-slate-50 p-3 text-sm leading-relaxed text-slate-800">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Content</span>
+                                <p className="text-xs text-zinc-800 mt-0.5 rounded-xl border border-zinc-100 bg-zinc-50 p-2.5">
                                     {detailsMessage.text}
                                 </p>
                             </div>
                         </div>
-                        <div className="border-t border-slate-100 px-6 py-4">
+                        <div className="mt-4 pt-3 border-t border-zinc-100 flex justify-end">
                             <button
-                                type="button"
                                 onClick={() => setDetailsMessage(null)}
-                                className="w-full rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200"
+                                className="rounded-xl border border-zinc-200 bg-white px-4 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-50"
                             >
                                 Close
                             </button>

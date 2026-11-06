@@ -7,6 +7,7 @@ import Card from "./Card";
 import Comment from "./Comment";
 import Description from "./Description";
 import User from "./User";
+import UserSettings from "./UserSettings";
 import ChatRoom from "./ChatRoom";
 import Message from "./Message";
 
@@ -57,10 +58,13 @@ ClientNote.belongsTo(Client, { foreignKey: "client_id" });
 User.hasMany(ChatRoom, { foreignKey: "created_by" });
 ChatRoom.belongsTo(User, { foreignKey: "created_by", as: "creator" });
 
-ChatRoom.hasMany(Message, { foreignKey: "room_id", onDelete: 'CASCADE' });
+ChatRoom.hasMany(Message, { foreignKey: "room_id", as: "messages", onDelete: 'CASCADE' });
 Message.belongsTo(ChatRoom, { foreignKey: "room_id" });
 
 User.hasMany(Message, { foreignKey: "user_id" });
 Message.belongsTo(User, { foreignKey: "user_id", as: "sender" });
 
-export { Client, ClientNote, Project, Board, List, Card, Comment, Description, User, Message, ChatRoom };   
+User.hasOne(UserSettings, { foreignKey: "user_id", as: "settings", onDelete: "CASCADE" });
+UserSettings.belongsTo(User, { foreignKey: "user_id" });
+
+export { Client, ClientNote, Project, Board, List, Card, Comment, Description, User, UserSettings, Message, ChatRoom };   

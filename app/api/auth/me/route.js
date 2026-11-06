@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
-import User from "@/models/User";
+import { User, UserSettings } from "@/models";
 import { connectDB } from "@/config/sequelize";
 
 export async function GET() {
@@ -14,7 +14,8 @@ export async function GET() {
         }
         const decoded = jwt.verify(token, process.env.JWT_SECRET || "devskarnel_secret_key_123");
         const user = await User.findByPk(decoded.userId, {
-            attributes: ['user_id', 'name', 'email', 'role', 'image']
+            attributes: ['user_id', 'name', 'email', 'role', 'image'],
+            include: [{ model: UserSettings, as: 'settings' }]
         });
 
         return NextResponse.json({ success: true, user });
