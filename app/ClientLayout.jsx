@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { SidebarProvider, useSidebar } from "./context/SidebarContext";
 
@@ -22,6 +23,15 @@ function ClientLayoutContent({ children }) {
         pathname.startsWith("/login") || pathname.startsWith("/signup");
     const isChatsRoute =
         pathname.startsWith("/chats") || pathname.startsWith("/chat");
+
+    // Pre-warm socket on authenticated app pages for instant Live chat switching
+    useEffect(() => {
+        if (!isAuthPage) {
+            import("./lib/socketClient").then(({ prewarmSocket }) => {
+                prewarmSocket();
+            }).catch(() => {});
+        }
+    }, [isAuthPage]);
 
     const desktopMarginWidth = isCollapsed
         ? "md:ml-20 md:w-[calc(100%-5rem)] md:max-w-[calc(100%-5rem)]"

@@ -18,7 +18,11 @@ export default function SocketHandler(req, res) {
     const io = new Server(res.socket.server, {
         path: "/api/socket",
         addTrailingSlash: false,
-        connectTimeout: 20_000,
+        connectTimeout: 45_000,
+        pingTimeout: 30_000,
+        pingInterval: 10_000,
+        transports: ["websocket", "polling"],
+        allowUpgrades: true,
         cors: {
             origin: true,
             credentials: true,
@@ -31,8 +35,7 @@ export default function SocketHandler(req, res) {
         socket.on("join_room", async (roomId) => {
             if (!roomId) return;
             try {
-                await socket.join(roomId);
-                console.log(`User joined room: ${roomId}`);
+                await socket.join(String(roomId));
             } catch (e) {
                 console.error("join_room error:", e);
             }
@@ -41,7 +44,7 @@ export default function SocketHandler(req, res) {
         socket.on("leave_room", async (roomId) => {
             if (!roomId) return;
             try {
-                await socket.leave(roomId);
+                await socket.leave(String(roomId));
             } catch (e) {
                 console.error("leave_room error:", e);
             }
@@ -58,21 +61,33 @@ export default function SocketHandler(req, res) {
                 const msg = await Message.create({
                     room_id: data.room_id,
                     user_id: data.user_id,
-                    text: data.text.trim()
+                    text: data.text.trim(),
                 });
 
                 const fullMsg = await Message.findByPk(msg.id, {
-                    include: [{ model: User, as: 'sender', attributes: ['name'] }]
+                    include: [{ model: User, as: "sender", attributes: ["name"] }],
                 });
 
-                await socket.join(data.room_id);
+                await socket.join(String(data.room_id));
 
                 const payload = fullMsg ? fullMsg.get({ plain: true }) : null;
                 if (payload) {
-                    io.to(data.room_id).emit("receive_msg", payload);
+                    io.to(String(data.room_id)).emit("receive_msg", payload);
                 }
             } catch (err) {
                 console.error("❌ Save Error:", err);
+            }
+        });
+
+        socket.on("update_msg", (data) => {
+            if (data?.room_id) {
+                io.to(String(data.room_id)).emit("update_msg", data);
+            }
+        });
+
+        socket.on("delete_msg", (data) => {
+            if (data?.room_id) {
+                io.to(String(data.room_id)).emit("delete_msg", data);
             }
         });
     });

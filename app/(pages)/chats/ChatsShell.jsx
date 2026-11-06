@@ -2,9 +2,13 @@
 
 import { usePathname } from "next/navigation";
 import { inter } from "@/app/fonts";
+import { useSocket } from "@/app/hooks/useSocket";
 import ChatListSidebar from "./ChatListSidebar";
 
 export default function ChatsShell({ children }) {
+    // Pre-warm persistent socket connection so all channel views are instantly Live
+    useSocket();
+
     const pathname = usePathname() || "";
     const normalized = pathname.replace(/\/$/, "") || "/";
     const isChatsRoot = normalized === "/chats";

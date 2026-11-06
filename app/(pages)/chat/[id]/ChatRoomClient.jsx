@@ -487,7 +487,11 @@ export default function ChatRoomClient({ roomId: roomIdProp, embedded = false })
             setMessages((prev) => prev.filter((m) => m.id !== data.message_id));
         };
 
-        const joinRoom = () => socket.emit("join_room", room);
+        const joinRoom = () => {
+            if (socket.connected) {
+                socket.emit("join_room", room);
+            }
+        };
         joinRoom();
 
         socket.on("connect", joinRoom);
@@ -500,7 +504,9 @@ export default function ChatRoomClient({ roomId: roomIdProp, embedded = false })
             socket.off("receive_msg", onReceive);
             socket.off("update_msg", onUpdateMsg);
             socket.off("delete_msg", onDeleteMsg);
-            socket.emit("leave_room", room);
+            if (socket.connected) {
+                socket.emit("leave_room", room);
+            }
         };
     }, [socket, roomId, notifyIncomingMessage]);
 
