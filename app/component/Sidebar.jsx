@@ -4,7 +4,6 @@ import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import useSWR from "swr";
 import {
     LayoutDashboard,
     Users,
@@ -19,7 +18,6 @@ import {
     PanelLeftClose,
     PanelLeftOpen,
     FileCode2,
-    Search,
     UserCheck,
     ChevronRight,
 } from "lucide-react";
@@ -29,8 +27,6 @@ import { useSettings } from "../hooks/useSettings";
 import { useSidebar } from "../context/SidebarContext";
 import { toast } from "sonner";
 
-const fetcher = (url) => fetch(url).then((res) => res.json()).catch(() => null);
-
 export default function Sidebar() {
     const pathname = usePathname() || "";
     const router = useRouter();
@@ -39,29 +35,6 @@ export default function Sidebar() {
     const { isCollapsed, toggleCollapse, isMobileOpen, setIsMobileOpen } = useSidebar();
 
     const [isHovered, setIsHovered] = useState(false);
-    const [searchQuery, setSearchQuery] = useState("");
-
-    // Lightly fetch counts for live badges
-    const { data: clientsData } = useSWR("/api/client", fetcher, {
-        revalidateOnFocus: false,
-        dedupingInterval: 60000,
-    });
-    const { data: projectsData } = useSWR("/api/project", fetcher, {
-        revalidateOnFocus: false,
-        dedupingInterval: 60000,
-    });
-    const { data: boardsData } = useSWR("/api/boards", fetcher, {
-        revalidateOnFocus: false,
-        dedupingInterval: 60000,
-    });
-
-    const clientsCount = Array.isArray(clientsData) ? clientsData.length : "50+";
-    const projectsCount = Array.isArray(projectsData) ? projectsData.length : "7";
-    const boardsCount = Array.isArray(boardsData?.boards)
-        ? boardsData.boards.length
-        : Array.isArray(boardsData)
-        ? boardsData.length
-        : "10";
 
     const isExpanded = !isCollapsed || isHovered || isMobileOpen;
 
@@ -137,7 +110,7 @@ export default function Sidebar() {
         return name.slice(0, 2).toUpperCase();
     };
 
-    // Organized navigation sections with working routes
+    // Clean, concise navigation items without clutter
     const navigationSections = useMemo(
         () => [
             {
@@ -148,37 +121,29 @@ export default function Sidebar() {
                         href: "/dashboard",
                         label: "Dashboard",
                         icon: LayoutDashboard,
-                        badge: null,
-                        tooltip: "Workspace Overview & Analytics",
                     },
                 ],
             },
             {
-                section: "CRM & WORKSPACE",
+                section: "WORKSPACE",
                 items: [
                     {
                         id: "clients",
                         href: "/clients",
                         label: "Clients",
                         icon: Users,
-                        badge: clientsCount,
-                        tooltip: "Client Directory & Leads",
                     },
                     {
                         id: "projects",
                         href: "/projects",
                         label: "Projects",
                         icon: Briefcase,
-                        badge: projectsCount,
-                        tooltip: "Active Deliverables & Budgets",
                     },
                     {
                         id: "boards",
                         href: "/boards",
                         label: "Boards",
                         icon: Kanban,
-                        badge: boardsCount,
-                        tooltip: "Kanban Sprints & Pipelines",
                     },
                 ],
             },
@@ -188,62 +153,37 @@ export default function Sidebar() {
                     {
                         id: "chats",
                         href: "/chats",
-                        label: "Team Chats",
+                        label: "Chats",
                         icon: MessageSquare,
-                        badge: "Live",
-                        isLiveDot: true,
-                        tooltip: "Real-time Messaging & Channels",
                     },
                 ],
             },
             {
-                section: "DEVELOPER & SYSTEM",
+                section: "SYSTEM",
                 items: [
                     {
                         id: "api-doc",
                         href: "/api-doc",
                         label: "API Docs",
                         icon: FileCode2,
-                        badge: "REST",
-                        tooltip: "Interactive Swagger API Docs",
                     },
                     {
                         id: "settings",
                         href: "/settings",
                         label: "Settings",
                         icon: Settings,
-                        badge: null,
-                        tooltip: "Workspace Configuration & Automations",
                     },
                     {
                         id: "profile",
                         href: "/profile",
-                        label: "My Profile",
+                        label: "Profile",
                         icon: UserCheck,
-                        badge: null,
-                        tooltip: "Account Settings & Credentials",
                     },
                 ],
             },
         ],
-        [clientsCount, projectsCount, boardsCount]
+        []
     );
-
-    // Filter items if searching in expanded mode
-    const filteredSections = useMemo(() => {
-        if (!searchQuery.trim()) return navigationSections;
-        const q = searchQuery.toLowerCase();
-        return navigationSections
-            .map((sec) => ({
-                ...sec,
-                items: sec.items.filter(
-                    (item) =>
-                        item.label.toLowerCase().includes(q) ||
-                        item.id.toLowerCase().includes(q)
-                ),
-            }))
-            .filter((sec) => sec.items.length > 0);
-    }, [navigationSections, searchQuery]);
 
     const isProfileActive = pathname.startsWith("/profile");
 
@@ -263,12 +203,12 @@ export default function Sidebar() {
                         <Image
                             src="/logo/dklogo.png"
                             alt="CRM"
-                            width={30}
-                            height={30}
-                            className="rounded-md object-contain"
+                            width={32}
+                            height={32}
+                            className="rounded-lg object-contain"
                             priority
                         />
-                        <span className="text-sm font-semibold text-zinc-900 tracking-tight truncate max-w-[180px]">
+                        <span className="text-base font-bold text-zinc-900 tracking-tight truncate max-w-[180px]">
                             {settings?.workspaceName || "CRM"}
                         </span>
                     </div>
@@ -278,7 +218,7 @@ export default function Sidebar() {
                     <button
                         onClick={() => router.push("/profile")}
                         className="flex items-center gap-2 p-1 rounded-full hover:ring-2 hover:ring-zinc-200 transition-all cursor-pointer"
-                        title="Your Profile"
+                        title="Profile"
                     >
                         <div className="relative">
                             {user?.image ? (
@@ -286,10 +226,10 @@ export default function Sidebar() {
                                 <img
                                     src={user.image}
                                     alt={user?.name || "Avatar"}
-                                    className="w-8 h-8 rounded-full object-cover border border-zinc-200"
+                                    className="w-9 h-9 rounded-full object-cover border border-zinc-200"
                                 />
                             ) : (
-                                <div className="w-8 h-8 rounded-full bg-zinc-900 text-white text-xs font-semibold flex items-center justify-center">
+                                <div className="w-9 h-9 rounded-full bg-zinc-900 text-white text-xs font-semibold flex items-center justify-center">
                                     {getInitials(user?.name)}
                                 </div>
                             )}
@@ -332,24 +272,24 @@ export default function Sidebar() {
                     className="md:hidden absolute top-4 right-3.5 p-1.5 text-zinc-500 hover:text-zinc-950 hover:bg-zinc-100 rounded-lg transition-colors cursor-pointer"
                     aria-label="Close menu"
                 >
-                    <X size={18} />
+                    <X size={20} />
                 </button>
 
-                {/* Workspace Header with Tap-to-Toggle Button */}
-                <div className="shrink-0 px-3.5 h-16 border-b border-zinc-100 flex items-center justify-between">
+                {/* Workspace Header */}
+                <div className="shrink-0 px-4 h-18 border-b border-zinc-100 flex items-center justify-between">
                     <Link
                         href="/dashboard"
                         onClick={() => setIsMobileOpen(false)}
-                        className={`flex items-center gap-3 group cursor-pointer overflow-hidden min-w-0 ${
+                        className={`flex items-center gap-3.5 group cursor-pointer overflow-hidden min-w-0 ${
                             !isExpanded ? "mx-auto" : ""
                         }`}
                     >
-                        <div className="w-9 h-9 shrink-0 flex items-center justify-center rounded-xl bg-zinc-50 border border-zinc-200/70 group-hover:border-zinc-300 transition-colors">
+                        <div className="w-10 h-10 shrink-0 flex items-center justify-center rounded-xl bg-zinc-50 border border-zinc-200 group-hover:border-zinc-300 transition-colors">
                             <Image
                                 src="/logo/dklogo.png"
                                 alt="CRM"
-                                width={24}
-                                height={24}
+                                width={26}
+                                height={26}
                                 className="object-contain"
                                 priority
                             />
@@ -357,64 +297,37 @@ export default function Sidebar() {
 
                         {isExpanded && (
                             <div className="flex flex-col min-w-0 transition-all duration-300">
-                                <span className="text-xs font-semibold text-zinc-900 tracking-tight truncate">
+                                <span className="text-sm font-bold text-zinc-900 tracking-tight truncate">
                                     {settings?.workspaceName || "CRM"}
                                 </span>
-                                <span className="text-[10px] font-normal text-zinc-400 tracking-normal truncate">
-                                    Workspace Hub
+                                <span className="text-xs font-normal text-zinc-400 tracking-normal truncate">
+                                    Workspace
                                 </span>
                             </div>
                         )}
                     </Link>
 
-                    {/* Desktop Tap-to-Open/Close Toggle Button (Visible when expanded) */}
+                    {/* Toggle Button */}
                     {isExpanded && (
                         <button
                             type="button"
                             onClick={toggleCollapse}
-                            className="hidden md:flex items-center justify-center w-7 h-7 rounded-lg text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 transition-colors cursor-pointer shrink-0"
-                            title="Collapse sidebar (Ctrl+B)"
-                            aria-label="Collapse sidebar"
+                            className="hidden md:flex items-center justify-center w-8 h-8 rounded-lg text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 transition-colors cursor-pointer shrink-0"
+                            title="Toggle sidebar"
+                            aria-label="Toggle sidebar"
                         >
-                            <PanelLeftClose size={16} strokeWidth={2} />
+                            <PanelLeftClose size={18} strokeWidth={2} />
                         </button>
                     )}
                 </div>
 
-                {/* Search / Quick Jump (Visible when expanded) */}
-                {isExpanded && (
-                    <div className="px-3 pt-3 pb-1 shrink-0">
-                        <div className="relative flex items-center">
-                            <Search
-                                size={14}
-                                className="absolute left-2.5 text-zinc-400 pointer-events-none"
-                            />
-                            <input
-                                type="text"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                placeholder="Jump to... (Search)"
-                                className="w-full h-8 pl-8 pr-7 text-xs bg-zinc-50 border border-zinc-200/80 rounded-lg text-zinc-800 placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:bg-white transition-all"
-                            />
-                            {searchQuery && (
-                                <button
-                                    onClick={() => setSearchQuery("")}
-                                    className="absolute right-2 text-zinc-400 hover:text-zinc-600"
-                                >
-                                    <X size={12} />
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                )}
-
                 {/* Navigation Sections */}
-                <nav className="flex-1 overflow-y-auto overflow-x-hidden px-2.5 py-3 space-y-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                    {filteredSections.map((group) => (
+                <nav className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-3 space-y-3 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                    {navigationSections.map((group) => (
                         <div key={group.section} className="space-y-1">
-                            {/* Section Header (Visible when expanded) */}
+                            {/* Section Header */}
                             {isExpanded && (
-                                <div className="px-2.5 py-1 text-[10px] font-bold text-zinc-400 tracking-wider uppercase select-none">
+                                <div className="pt-2 pb-1 px-3 text-xs font-semibold text-zinc-400 tracking-wider uppercase select-none">
                                     {group.section}
                                 </div>
                             )}
@@ -444,13 +357,8 @@ export default function Sidebar() {
                                     <div key={item.id} className="relative group">
                                         {/* Desktop Tooltip (Collapsed mode) */}
                                         {!isExpanded && (
-                                            <div className="hidden md:flex items-center gap-2 absolute left-full ml-3 px-2.5 py-1.5 bg-zinc-900 text-zinc-100 text-xs font-medium rounded-md shadow-lg pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap z-50">
+                                            <div className="hidden md:flex items-center gap-2 absolute left-full ml-3 px-3 py-1.5 bg-zinc-900 text-zinc-100 text-xs font-medium rounded-lg shadow-xl pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap z-50">
                                                 <span>{item.label}</span>
-                                                {item.badge && (
-                                                    <span className="px-1.5 py-0.2 bg-zinc-700 text-zinc-200 text-[10px] font-bold rounded">
-                                                        {item.badge}
-                                                    </span>
-                                                )}
                                                 <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-zinc-900" />
                                             </div>
                                         )}
@@ -459,19 +367,19 @@ export default function Sidebar() {
                                             href={item.href}
                                             onClick={() => setIsMobileOpen(false)}
                                             className={`
-                                                relative flex items-center h-9 px-2 rounded-lg transition-all duration-150
+                                                relative flex items-center h-11 px-2.5 rounded-xl transition-all duration-150
                                                 ${
                                                     isActive
-                                                        ? "bg-zinc-900 text-white font-medium shadow-xs"
-                                                        : "text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100/80 font-medium"
+                                                        ? "bg-zinc-900 text-white font-semibold shadow-xs"
+                                                        : "text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100/90 font-medium"
                                                 }
                                             `}
                                         >
                                             {/* Centered Icon Container */}
-                                            <div className="w-9 h-9 shrink-0 flex items-center justify-center">
+                                            <div className="w-10 h-10 shrink-0 flex items-center justify-center">
                                                 <Icon
-                                                    size={18}
-                                                    strokeWidth={isActive ? 2.2 : 1.8}
+                                                    size={20}
+                                                    strokeWidth={isActive ? 2.2 : 1.9}
                                                     className={
                                                         isActive
                                                             ? "text-white"
@@ -480,36 +388,16 @@ export default function Sidebar() {
                                                 />
                                             </div>
 
-                                            {/* Label & Badges */}
-                                            <div
-                                                className={`flex items-center justify-between flex-1 min-w-0 transition-all duration-300 ml-1.5 ${
+                                            {/* Label */}
+                                            <span
+                                                className={`text-[14px] font-medium tracking-normal truncate transition-all duration-300 ml-2.5 ${
                                                     isExpanded
                                                         ? "opacity-100 w-auto"
                                                         : "opacity-0 w-0 overflow-hidden"
                                                 }`}
                                             >
-                                                <span className="text-xs truncate">
-                                                    {item.label}
-                                                </span>
-
-                                                {/* Badge pill */}
-                                                {item.badge && (
-                                                    <span
-                                                        className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md tabular-nums transition-colors ${
-                                                            isActive
-                                                                ? "bg-zinc-800 text-zinc-200"
-                                                                : item.isLiveDot
-                                                                ? "bg-emerald-50 text-emerald-600 border border-emerald-200/60"
-                                                                : "bg-zinc-100 text-zinc-600 border border-zinc-200/50"
-                                                        }`}
-                                                    >
-                                                        {item.isLiveDot && (
-                                                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1 animate-pulse" />
-                                                        )}
-                                                        {item.badge}
-                                                    </span>
-                                                )}
-                                            </div>
+                                                {item.label}
+                                            </span>
                                         </Link>
                                     </div>
                                 );
@@ -519,12 +407,12 @@ export default function Sidebar() {
                 </nav>
 
                 {/* Bottom Footer Actions (Profile & Collapse Bar) */}
-                <div className="shrink-0 px-2.5 py-2.5 border-t border-zinc-100 space-y-1 bg-white">
+                <div className="shrink-0 px-3 py-3 border-t border-zinc-100 space-y-1.5 bg-white">
                     {/* User Profile Button */}
                     <div className="relative group">
                         {!isExpanded && (
-                            <div className="hidden md:flex items-center absolute left-full ml-3 px-2.5 py-1.5 bg-zinc-900 text-zinc-100 text-xs font-medium rounded-md shadow-lg pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap z-50">
-                                Profile & Settings
+                            <div className="hidden md:flex items-center absolute left-full ml-3 px-3 py-1.5 bg-zinc-900 text-zinc-100 text-xs font-medium rounded-lg shadow-xl pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap z-50">
+                                Profile
                                 <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-zinc-900" />
                             </div>
                         )}
@@ -536,7 +424,7 @@ export default function Sidebar() {
                                 router.push("/profile");
                             }}
                             className={`
-                                cursor-pointer w-full flex items-center h-11 px-1.5 rounded-lg transition-all duration-150 text-left
+                                cursor-pointer w-full flex items-center h-13 px-2 rounded-xl transition-all duration-150 text-left
                                 ${
                                     isProfileActive
                                         ? "bg-zinc-100 text-zinc-950 font-semibold border border-zinc-200/80"
@@ -545,21 +433,21 @@ export default function Sidebar() {
                             `}
                         >
                             {/* Avatar with Presence Indicator */}
-                            <div className="w-9 h-9 shrink-0 flex items-center justify-center relative">
+                            <div className="w-10 h-10 shrink-0 flex items-center justify-center relative">
                                 {user?.image ? (
                                     /* eslint-disable-next-line @next/next/no-img-element */
                                     <img
                                         src={user.image}
                                         alt={user?.name || "Profile"}
-                                        className="w-7 h-7 rounded-full object-cover border border-zinc-200"
+                                        className="w-9 h-9 rounded-full object-cover border border-zinc-200"
                                     />
                                 ) : (
-                                    <div className="w-7 h-7 rounded-full bg-zinc-900 text-white text-[11px] font-semibold flex items-center justify-center">
-                                        {user ? getInitials(user?.name) : <UserIcon size={14} />}
+                                    <div className="w-9 h-9 rounded-full bg-zinc-900 text-white text-xs font-semibold flex items-center justify-center">
+                                        {user ? getInitials(user?.name) : <UserIcon size={16} />}
                                     </div>
                                 )}
                                 <span
-                                    className={`absolute right-0.5 bottom-0.5 w-2 h-2 rounded-full ring-2 ring-white ${getStatusDotColor(
+                                    className={`absolute right-0.5 bottom-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-white ${getStatusDotColor(
                                         userStatus
                                     )}`}
                                     title={`Status: ${userStatus}`}
@@ -568,21 +456,21 @@ export default function Sidebar() {
 
                             {/* User details */}
                             <div
-                                className={`flex flex-col min-w-0 transition-all duration-300 ml-1.5 ${
+                                className={`flex flex-col min-w-0 transition-all duration-300 ml-2.5 ${
                                     isExpanded ? "opacity-100 w-auto" : "opacity-0 w-0 overflow-hidden"
                                 }`}
                             >
-                                <span className="text-xs font-semibold text-zinc-900 truncate">
-                                    {user?.name || "Account Profile"}
+                                <span className="text-sm font-semibold text-zinc-900 truncate">
+                                    {user?.name || "Profile"}
                                 </span>
-                                <span className="text-[10px] text-zinc-400 truncate">
+                                <span className="text-xs text-zinc-400 truncate">
                                     {user?.settings?.designation || user?.role || "Member"}
                                 </span>
                             </div>
 
                             {isExpanded && (
                                 <ChevronRight
-                                    size={14}
+                                    size={16}
                                     className="ml-auto text-zinc-400 shrink-0"
                                 />
                             )}
@@ -590,33 +478,28 @@ export default function Sidebar() {
                     </div>
 
                     {/* Bottom Quick Bar: Collapse Toggle (Desktop) & Log Out */}
-                    <div className="flex items-center gap-1 pt-1">
+                    <div className="flex items-center gap-1.5 pt-1">
                         {/* Tap to Toggle Button (when expanded) */}
                         {isExpanded ? (
                             <button
                                 type="button"
                                 onClick={toggleCollapse}
-                                className="cursor-pointer flex-1 flex items-center justify-between h-8 px-2.5 rounded-lg text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors text-xs font-medium"
-                                title="Collapse sidebar (Ctrl+B)"
+                                className="cursor-pointer flex-1 flex items-center gap-2 h-9 px-3 rounded-xl text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors text-xs font-medium"
+                                title="Collapse sidebar"
                             >
-                                <span className="flex items-center gap-2">
-                                    <PanelLeftClose size={15} />
-                                    <span>Collapse</span>
-                                </span>
-                                <kbd className="text-[10px] text-zinc-400 bg-zinc-100 px-1.5 py-0.5 rounded border border-zinc-200/80 font-mono">
-                                    Ctrl+B
-                                </kbd>
+                                <PanelLeftClose size={16} />
+                                <span>Collapse</span>
                             </button>
                         ) : (
                             /* Tap to Expand Button (when collapsed) */
                             <button
                                 type="button"
                                 onClick={toggleCollapse}
-                                className="cursor-pointer hidden md:flex items-center justify-center w-full h-8 rounded-lg text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors"
-                                title="Expand sidebar (Ctrl+B)"
+                                className="cursor-pointer hidden md:flex items-center justify-center w-full h-9 rounded-xl text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors"
+                                title="Expand sidebar"
                                 aria-label="Expand sidebar"
                             >
-                                <PanelLeftOpen size={16} strokeWidth={2} />
+                                <PanelLeftOpen size={18} strokeWidth={2} />
                             </button>
                         )}
 
@@ -625,12 +508,12 @@ export default function Sidebar() {
                             <button
                                 type="button"
                                 onClick={handleLogout}
-                                className={`cursor-pointer flex items-center justify-center h-8 rounded-lg text-zinc-500 hover:text-rose-600 hover:bg-rose-50 transition-colors ${
-                                    isExpanded ? "px-2.5" : "w-full"
+                                className={`cursor-pointer flex items-center justify-center h-9 rounded-xl text-zinc-500 hover:text-rose-600 hover:bg-rose-50 transition-colors ${
+                                    isExpanded ? "px-3" : "w-full"
                                 }`}
                                 title="Log out"
                             >
-                                <LogOut size={16} strokeWidth={1.8} />
+                                <LogOut size={17} strokeWidth={1.8} />
                                 {isExpanded && (
                                     <span className="text-xs font-medium ml-1.5">
                                         Log out

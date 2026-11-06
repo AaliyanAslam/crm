@@ -12,48 +12,45 @@ import {
 } from "recharts";
 
 const dataMonthly = [
-    { period: "Jan", newLeads: 24, dealsClosed: 14 },
-    { period: "Feb", newLeads: 31, dealsClosed: 18 },
-    { period: "Mar", newLeads: 42, dealsClosed: 26 },
-    { period: "Apr", newLeads: 38, dealsClosed: 22 },
-    { period: "May", newLeads: 49, dealsClosed: 32 },
-    { period: "Jun", newLeads: 58, dealsClosed: 39 },
-    { period: "Jul", newLeads: 51, dealsClosed: 35 },
-    { period: "Aug", newLeads: 62, dealsClosed: 44 },
-    { period: "Sep", newLeads: 71, dealsClosed: 48 },
-    { period: "Oct", newLeads: 65, dealsClosed: 43 },
-    { period: "Nov", newLeads: 78, dealsClosed: 52 },
-    { period: "Dec", newLeads: 85, dealsClosed: 59 },
+    { period: "Jan", revenue: 28400, target: 25000 },
+    { period: "Feb", revenue: 32100, target: 28000 },
+    { period: "Mar", revenue: 36800, target: 32000 },
+    { period: "Apr", revenue: 34500, target: 32000 },
+    { period: "May", revenue: 41200, target: 36000 },
+    { period: "Jun", revenue: 44800, target: 40000 },
+    { period: "Jul", revenue: 42900, target: 40000 },
+    { period: "Aug", revenue: 47600, target: 42000 },
+    { period: "Sep", revenue: 51200, target: 45000 },
+    { period: "Oct", revenue: 49800, target: 45000 },
+    { period: "Nov", revenue: 54600, target: 48000 },
+    { period: "Dec", revenue: 58200, target: 50000 },
 ];
 
 const dataWeekly = [
-    { period: "Mon", newLeads: 8, dealsClosed: 5 },
-    { period: "Tue", newLeads: 12, dealsClosed: 7 },
-    { period: "Wed", newLeads: 15, dealsClosed: 9 },
-    { period: "Thu", newLeads: 11, dealsClosed: 8 },
-    { period: "Fri", newLeads: 18, dealsClosed: 13 },
-    { period: "Sat", newLeads: 7, dealsClosed: 4 },
-    { period: "Sun", newLeads: 5, dealsClosed: 3 },
+    { period: "W1", revenue: 11400, target: 10000 },
+    { period: "W2", revenue: 13800, target: 11500 },
+    { period: "W3", revenue: 12900, target: 11500 },
+    { period: "W4", revenue: 16500, target: 13000 },
 ];
 
 function CustomChartTooltip({ active, payload, label }) {
     if (!active || !payload || !payload.length) return null;
 
     return (
-        <div className="rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-white shadow-xl">
-            <p className="font-semibold text-zinc-300">{label}</p>
-            <div className="mt-1.5 space-y-1">
+        <div className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs shadow-md">
+            <p className="font-semibold text-zinc-900">{label}</p>
+            <div className="mt-1 space-y-0.5">
                 {payload.map((entry, index) => (
                     <div key={`item-${index}`} className="flex items-center gap-2">
                         <span
                             className="h-2 w-2 rounded-full"
                             style={{ backgroundColor: entry.color }}
                         />
-                        <span className="text-zinc-400">
-                            {entry.name === "newLeads" ? "New Inquiries" : "Converted"}
+                        <span className="text-zinc-500">
+                            {entry.name === "revenue" ? "Realized Revenue" : "Target Quota"}
                         </span>
-                        <span className="ml-auto font-medium tabular-nums text-white">
-                            {entry.value}
+                        <span className="ml-auto font-medium tabular-nums text-zinc-900">
+                            ${entry.value?.toLocaleString()}
                         </span>
                     </div>
                 ))}
@@ -67,68 +64,59 @@ export default function DataCharts() {
     const activeData = range === "monthly" ? dataMonthly : dataWeekly;
 
     return (
-        <div className="flex h-full flex-col rounded-xl border border-zinc-200/80 bg-white p-3.5 sm:p-5 shadow-xs">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-zinc-100 pb-3">
+        <div className="flex h-full flex-col justify-between rounded-xl border border-zinc-200/70 bg-white p-5">
+            {/* Header */}
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h3 className="text-sm font-semibold tracking-tight text-zinc-900">
-                        Pipeline & Deal Volume
+                    <h3 className="text-sm font-semibold text-zinc-900">
+                        Revenue vs. Target Quota
                     </h3>
-                    <p className="text-[11px] sm:text-xs text-zinc-500">
-                        Client growth vs conversion velocity over time
+                    <p className="text-xs text-zinc-500">
+                        Monthly realized invoice volume vs projected target
                     </p>
                 </div>
 
-                <div className="flex items-center self-start sm:self-auto gap-1 rounded-lg bg-zinc-100/90 p-0.5 text-[11px] font-medium text-zinc-600">
-                    <button
-                        type="button"
-                        onClick={() => setRange("weekly")}
-                        className={`cursor-pointer rounded-md px-2.5 py-1 transition-all ${
-                            range === "weekly"
-                                ? "bg-white text-zinc-900 shadow-xs font-semibold"
-                                : "hover:text-zinc-900"
-                        }`}
-                    >
-                        7 Days
-                    </button>
+                <div className="inline-flex items-center rounded-lg border border-zinc-200 bg-zinc-50/70 p-0.5 text-xs">
                     <button
                         type="button"
                         onClick={() => setRange("monthly")}
-                        className={`cursor-pointer rounded-md px-2.5 py-1 transition-all ${
+                        className={`rounded-md px-2.5 py-1 transition-all cursor-pointer ${
                             range === "monthly"
-                                ? "bg-white text-zinc-900 shadow-xs font-semibold"
-                                : "hover:text-zinc-900"
+                                ? "bg-white text-zinc-900 shadow-xs font-medium"
+                                : "text-zinc-500 hover:text-zinc-900"
                         }`}
                     >
-                        12 Months
+                        Monthly
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setRange("weekly")}
+                        className={`rounded-md px-2.5 py-1 transition-all cursor-pointer ${
+                            range === "weekly"
+                                ? "bg-white text-zinc-900 shadow-xs font-medium"
+                                : "text-zinc-500 hover:text-zinc-900"
+                        }`}
+                    >
+                        Weekly
                     </button>
                 </div>
             </div>
 
-            <div className="mt-3 flex items-center gap-4 text-xs">
-                <div className="flex items-center gap-1.5 text-zinc-600">
-                    <span className="h-2.5 w-2.5 rounded-full bg-zinc-900" />
-                    <span>New Inquiries</span>
-                </div>
-                <div className="flex items-center gap-1.5 text-zinc-600">
-                    <span className="h-2.5 w-2.5 rounded-full bg-zinc-400" />
-                    <span>Converted Deals</span>
-                </div>
-            </div>
-
-            <div className="mt-2 h-[220px] sm:h-[260px] w-full min-w-0">
+            {/* Chart */}
+            <div className="mt-4 h-64 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                     <AreaChart
                         data={activeData}
-                        margin={{ top: 8, right: 8, left: -20, bottom: 0 }}
+                        margin={{ top: 10, right: 10, left: -18, bottom: 0 }}
                     >
                         <defs>
-                            <linearGradient id="fillNewLeads" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#18181b" stopOpacity={0.16} />
-                                <stop offset="95%" stopColor="#18181b" stopOpacity={0} />
+                            <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#18181b" stopOpacity={0.08} />
+                                <stop offset="95%" stopColor="#18181b" stopOpacity={0.0} />
                             </linearGradient>
-                            <linearGradient id="fillDeals" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#71717a" stopOpacity={0.14} />
-                                <stop offset="95%" stopColor="#71717a" stopOpacity={0} />
+                            <linearGradient id="targetGrad" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#71717a" stopOpacity={0.04} />
+                                <stop offset="95%" stopColor="#71717a" stopOpacity={0.0} />
                             </linearGradient>
                         </defs>
                         <CartesianGrid
@@ -140,36 +128,52 @@ export default function DataCharts() {
                             dataKey="period"
                             axisLine={false}
                             tickLine={false}
-                            tick={{ fill: "#71717a", fontSize: 11 }}
-                            dy={6}
+                            tick={{ fill: "#a1a1aa", fontSize: 11 }}
                         />
                         <YAxis
                             axisLine={false}
                             tickLine={false}
-                            tick={{ fill: "#71717a", fontSize: 11 }}
-                            width={32}
+                            tick={{ fill: "#a1a1aa", fontSize: 11 }}
+                            tickFormatter={(v) => `$${v / 1000}k`}
                         />
                         <Tooltip content={<CustomChartTooltip />} />
                         <Area
                             type="monotone"
-                            dataKey="newLeads"
-                            name="newLeads"
-                            stroke="#18181b"
-                            strokeWidth={2}
+                            dataKey="target"
+                            stroke="#a1a1aa"
+                            strokeWidth={1.5}
+                            strokeDasharray="4 4"
                             fillOpacity={1}
-                            fill="url(#fillNewLeads)"
+                            fill="url(#targetGrad)"
                         />
                         <Area
                             type="monotone"
-                            dataKey="dealsClosed"
-                            name="dealsClosed"
-                            stroke="#71717a"
-                            strokeWidth={1.75}
+                            dataKey="revenue"
+                            stroke="#18181b"
+                            strokeWidth={2}
                             fillOpacity={1}
-                            fill="url(#fillDeals)"
+                            fill="url(#revenueGrad)"
                         />
                     </AreaChart>
                 </ResponsiveContainer>
+            </div>
+
+            {/* Bottom Chart Footer Legend */}
+            <div className="mt-3 flex items-center justify-between border-t border-zinc-100 pt-3 text-xs text-zinc-500">
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-zinc-900" />
+                        <span>Realized Revenue</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-zinc-400" />
+                        <span>Target Quota</span>
+                    </div>
+                </div>
+
+                <div className="font-medium text-zinc-700">
+                    Total YTD: <span className="font-semibold text-zinc-900 tabular-nums">$502,300</span>
+                </div>
             </div>
         </div>
     );
