@@ -19,17 +19,17 @@
  *             properties:
  *               name:
  *                 type: string
- *               index_order:
+ *               order_index:
  *                 type: integer
  *     responses:
- *       200:
+ *       201:
  *         description: List created successfully
  *       400:
  *         description: Invalid request payload
  *       500:
  *         description: Server error
- *   patch:
- *     summary: Update a list by ID
+ *   put:
+ *     summary: Bulk reorder lists in a board
  *     tags: [Lists]
  *     parameters:
  *       - in: path
@@ -44,31 +44,18 @@
  *           schema:
  *             type: object
  *             properties:
- *               name:
- *                 type: string
- *               index_order:
- *                 type: integer
+ *               lists:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     list_id:
+ *                       type: integer
+ *                     order_index:
+ *                       type: integer
  *     responses:
  *       200:
- *         description: List updated successfully
- *       404:
- *         description: List not found
- *       500:
- *         description: Server error
- *   delete:
- *     summary: Delete a list by ID
- *     tags: [Lists]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: List deleted successfully
- *       404:
- *         description: List not found
+ *         description: Lists reordered successfully
  *       500:
  *         description: Server error
  */
@@ -80,45 +67,93 @@ export async function POST(req, { params }) {
     try {
         await connectDB();
         const data = await req.json();
-        const { id } = await params;
-        const { name, index_order } = data;
+        const { id } = await params; // board_id
+        const { name } = data;
 
-        if (!name) {
+        if (!name || !name.trim()) {
             return NextResponse.json({
-                success: true,
+                success: false,
                 message: "Name is required",
-            }, { status: 400 })
+            }, { status: 400 });
         }
 
+        // Get max order_index in board so new list is placed at the end
+        const maxOrder = await List.max("order_index", { where: { board_id: id } });
+        const nextOrder = (maxOrder !== null && Number.isFinite(maxOrder)) ? maxOrder + 1 : 0;
+
         const createdList = await List.create({
-            name,
-            index_order: index_order || 1,
-            board_id: id
-        })
+            name: name.trim(),
+            order_index: data.order_index !== undefined ? data.order_index : nextOrder,
+            board_id: parseInt(id, 10),
+        });
+
         return NextResponse.json({
             success: true,
             message: "List Created Successfully",
             createdList
-        })
+        }, { status: 201 });
     } catch (error) {
-        console.error("error white creating list", error.message);
+        console.error("Error creating list:", error);
         return NextResponse.json({
             success: false,
-            message: "error while creating list",
+            message: "Error while creating list",
             error: error.message
-        })
+        }, { status: 500 });
     }
 }
 
+export async function PUT(req, { params }) {
+    try {
+        await connectDB();
+        const { id } = await params; // board_id
+        const body = await req.json();
+        const { lists } = body;
+
+        if (!Array.isArray(lists) || lists.length === 0) {
+            return NextResponse.json({
+                success: false,
+                message: "lists array is required"
+            }, { status: 400 });
+        }
+
+        // Batch update order_index for every list in this board
+        await Promise.all(
+            lists.map((item, idx) => {
+                const listId = typeof item === "object" ? item.list_id : item;
+                const orderIndex =
+                    typeof item === "object" && item.order_index !== undefined
+                        ? item.order_index
+                        : idx;
+
+                return List.update(
+                    { order_index: orderIndex },
+                    { where: { list_id: listId, board_id: id } }
+                );
+            })
+        );
+
+        return NextResponse.json({
+            success: true,
+            message: "Lists reordered successfully"
+        }, { status: 200 });
+    } catch (error) {
+        console.error("Error while reordering lists:", error);
+        return NextResponse.json({
+            success: false,
+            message: "Error while reordering lists",
+            error: error.message
+        }, { status: 500 });
+    }
+}
 
 export async function PATCH(req, { params }) {
     try {
         await connectDB();
-        const { id } = await params; // List ID
+        const { id } = await params;
         const body = await req.json();
 
-        // List dhoondo
-        const list = await List.findByPk(id);
+        const listId = body.list_id || id;
+        const list = await List.findByPk(listId);
 
         if (!list) {
             return NextResponse.json({
@@ -127,21 +162,18 @@ export async function PATCH(req, { params }) {
             }, { status: 404 });
         }
 
-        // Database update
-        // Ye name aur index_order dono ko handle karega
         await list.update({
             name: body.name || list.name,
-            index_order: body.index_order !== undefined ? body.index_order : list.index_order
+            order_index: body.order_index !== undefined ? body.order_index : list.order_index
         });
 
         return NextResponse.json({
             success: true,
             message: "List updated successfully",
             list
-        });
-
+        }, { status: 200 });
     } catch (error) {
-        console.error("Error while updating list:", error.message);
+        console.error("Error while updating list:", error);
         return NextResponse.json({
             success: false,
             message: "Error while updating list",
@@ -150,37 +182,31 @@ export async function PATCH(req, { params }) {
     }
 }
 
-
 export async function DELETE(req, { params }) {
     try {
         await connectDB();
-        
-        // URL se List ki ID pakrein
-        const { id } = await params; 
+        const { id } = await params;
 
-        // Database se list ko udaa dein
         const deletedCount = await List.destroy({
             where: { list_id: id }
         });
 
-        // Check karein ke kya list waqai thi ya pehle hi delete ho chuki hai
         if (deletedCount === 0) {
             return NextResponse.json({
                 success: false,
-                message: "List nahi mili ya pehle hi delete ho chuki hai."
+                message: "List not found"
             }, { status: 404 });
         }
 
         return NextResponse.json({
             success: true,
-            message: "List (aur uske cards) kamyabi se delete ho gaye! 🗑️"
-        });
-
+            message: "List deleted successfully"
+        }, { status: 200 });
     } catch (error) {
-        console.error("Error while deleting list:", error.message);
+        console.error("Error while deleting list:", error);
         return NextResponse.json({
             success: false,
-            message: "List delete karne mein masla hua",
+            message: "List delete error",
             error: error.message
         }, { status: 500 });
     }

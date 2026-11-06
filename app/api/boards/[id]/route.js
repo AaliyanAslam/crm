@@ -68,7 +68,9 @@ export async function GET(req, { params }) {
             ],
             order: [
                 [{ model: List, as: "lists" }, "order_index", "ASC"],
-                [{ model: List, as: "lists" }, { model: Card, as: "cards" }, "order_index", "ASC"]
+                [{ model: List, as: "lists" }, "list_id", "ASC"],
+                [{ model: List, as: "lists" }, { model: Card, as: "cards" }, "order_index", "ASC"],
+                [{ model: List, as: "lists" }, { model: Card, as: "cards" }, "card_id", "ASC"]
             ]
         });
 

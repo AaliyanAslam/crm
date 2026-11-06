@@ -106,13 +106,12 @@ const ListColumn = React.memo(({ list, onCardAdded, onCardClick, animationDelay 
                     <div
                         {...provided.droppableProps}
                         ref={provided.innerRef}
-                        className="flex-1 overflow-y-auto overflow-x-hidden p-2 min-h-3"
+                        className="flex-1 overflow-y-auto overflow-x-hidden p-2 min-h-16 transition-colors duration-150"
                         style={{
                             scrollbarWidth: 'thin',
                             scrollbarColor: '#27272a transparent',
-                            background: snapshot.isDraggingOver ? 'rgba(99,102,241,0.08)' : 'transparent',
+                            background: snapshot.isDraggingOver ? 'rgba(99,102,241,0.12)' : 'transparent',
                             borderRadius: '12px',
-                            transition: 'background 0.15s ease',
                         }}
                     >
                         {list.cards?.map((card, index) => (
@@ -125,6 +124,11 @@ const ListColumn = React.memo(({ list, onCardAdded, onCardClick, animationDelay 
                             />
                         ))}
                         {provided.placeholder}
+                        {(!list.cards || list.cards.length === 0) && !snapshot.isDraggingOver && (
+                            <div className="flex h-16 items-center justify-center rounded-xl border border-dashed border-zinc-800 text-[11px] font-medium text-zinc-500 select-none">
+                                Drop tasks here
+                            </div>
+                        )}
                     </div>
                 )}
             </Droppable>

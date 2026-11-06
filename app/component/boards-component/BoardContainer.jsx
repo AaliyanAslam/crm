@@ -98,16 +98,20 @@ const BoardContainer = React.memo(
           const [movedList] = newLists.splice(source.index, 1);
           newLists.splice(destination.index, 0, movedList);
 
+          // Update local state immediately for instant responsive 60fps UI
           setLocalLists(newLists);
 
           try {
-            const listId = parseInt(draggableId.replace("list-", ""));
-            const res = await fetch(`/api/lists/${listId}`, {
-              method: "PATCH",
+            // Bulk update ALL lists in this board with their new order_index
+            const reorderedLists = newLists.map((l, idx) => ({
+              list_id: l.list_id,
+              order_index: idx,
+            }));
+
+            const res = await fetch(`/api/boards/${boardId}/lists`, {
+              method: "PUT",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                order_index: destination.index,
-              }),
+              body: JSON.stringify({ lists: reorderedLists }),
             });
 
             if (!res.ok) {
@@ -138,6 +142,7 @@ const BoardContainer = React.memo(
         if (srcList.cards.length === 0 || !srcList.cards[source.index]) return;
 
         const [movedCard] = srcList.cards.splice(source.index, 1);
+        movedCard.list_id = destList.list_id;
         destList.cards.splice(destination.index, 0, movedCard);
 
         setLocalLists(newLists);
@@ -148,13 +153,27 @@ const BoardContainer = React.memo(
             destination.droppableId.replace("list-", ""),
           );
 
-          const res = await fetch(`/api/cards/${cardId}`, {
-            method: "PATCH",
+          // Re-sequence all cards in destList (and srcList if moved across lists)
+          const cardsToUpdate = destList.cards.map((c, idx) => ({
+            card_id: c.card_id,
+            list_id: destListId,
+            order_index: idx,
+          }));
+
+          if (srcList.list_id !== destList.list_id) {
+            srcList.cards.forEach((c, idx) => {
+              cardsToUpdate.push({
+                card_id: c.card_id,
+                list_id: srcList.list_id,
+                order_index: idx,
+              });
+            });
+          }
+
+          const res = await fetch("/api/cards", {
+            method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              list_id: destListId,
-              order_index: destination.index,
-            }),
+            body: JSON.stringify({ cards: cardsToUpdate }),
           });
 
           if (!res.ok) {
@@ -166,7 +185,7 @@ const BoardContainer = React.memo(
           onUpdate?.();
         }
       },
-      [localLists, onUpdate],
+      [localLists, boardId, onUpdate],
     );
 
     const handleAddList = useCallback(async () => {
