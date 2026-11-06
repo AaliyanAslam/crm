@@ -65,7 +65,7 @@ async function setup() {
                 VALUES (?, ?, ?, ?)
             `, [
                 u.user_id,
-                `Full-stack developer at Devskarnel CRM. Passionate about performant Next.js applications and cloud architecture.`,
+                `Full-stack developer at CRM. Passionate about performant Next.js applications and cloud architecture.`,
                 u.user_id === 1 ? 'Technical Lead & Admin' : 'Full Stack Developer',
                 'Product Engineering'
             ]);

@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
+import { SidebarProvider, useSidebar } from "./context/SidebarContext";
 
 const Sidebar = dynamic(() => import("./component/Sidebar"), {
     ssr: false,
@@ -13,18 +14,24 @@ const Sidebar = dynamic(() => import("./component/Sidebar"), {
     ),
 });
 
-export default function ClientLayout({ children }) {
+function ClientLayoutContent({ children }) {
     const pathname = usePathname() || "";
+    const { isCollapsed } = useSidebar();
+
     const isAuthPage =
         pathname.startsWith("/login") || pathname.startsWith("/signup");
     const isChatsRoute =
         pathname.startsWith("/chats") || pathname.startsWith("/chat");
 
+    const desktopMarginWidth = isCollapsed
+        ? "md:ml-20 md:w-[calc(100%-5rem)] md:max-w-[calc(100%-5rem)]"
+        : "md:ml-64 md:w-[calc(100%-16rem)] md:max-w-[calc(100%-16rem)]";
+
     const mainClass = isAuthPage
         ? "flex min-h-0 min-w-0 w-full max-w-full flex-1 flex-col overflow-x-clip"
         : isChatsRoute
-          ? "flex min-h-0 min-w-0 w-full flex-1 basis-0 flex-col overflow-x-clip overflow-y-hidden md:ml-20 md:w-[calc(100%-5rem)] md:max-w-[calc(100%-5rem)]"
-          : "flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-x-clip md:ml-20 md:w-[calc(100%-5rem)] md:max-w-[calc(100%-5rem)]";
+          ? `flex min-h-0 min-w-0 w-full flex-1 basis-0 flex-col overflow-x-clip overflow-y-hidden transition-[margin,width] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${desktopMarginWidth}`
+          : `flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-x-clip transition-[margin,width] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${desktopMarginWidth}`;
 
     const rootClass = isChatsRoute
         ? "flex h-dvh max-h-dvh min-h-0 w-full max-w-full flex-col overflow-x-clip overflow-y-hidden"
@@ -33,7 +40,17 @@ export default function ClientLayout({ children }) {
     return (
         <div className={rootClass} suppressHydrationWarning>
             <Sidebar />
-            <main className={mainClass} suppressHydrationWarning>{children}</main>
+            <main className={mainClass} suppressHydrationWarning>
+                {children}
+            </main>
         </div>
+    );
+}
+
+export default function ClientLayout({ children }) {
+    return (
+        <SidebarProvider>
+            <ClientLayoutContent>{children}</ClientLayoutContent>
+        </SidebarProvider>
     );
 }

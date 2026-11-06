@@ -6,8 +6,8 @@ import { useCallback } from "react";
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
 const DEFAULT_SETTINGS = {
-    workspaceName: "Devskarnel CRM Agency",
-    companyEmail: "admin@devskarnel.com",
+    workspaceName: "CRM",
+    companyEmail: "admin@crm.com",
     defaultCurrency: "USD",
     timezone: "Asia/Karachi",
     fiscalYearStart: "January",
@@ -71,7 +71,7 @@ export function useSettings() {
                     await mutate({ settings: resData.settings }, false);
                     if (typeof window !== "undefined") {
                         localStorage.setItem(
-                            "devskarnel_crm_settings",
+                            "crm_workspace_settings",
                             JSON.stringify(resData.settings)
                         );
                     }

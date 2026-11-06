@@ -106,7 +106,7 @@ export default function ClientsPage() {
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-zinc-200/80 pb-4">
                     <div>
                         <div className="flex items-center gap-2 text-xs font-medium text-zinc-500 mb-1">
-                            <span>Devskarnel CRM</span>
+                            <span>CRM</span>
                             <span className="text-zinc-300">/</span>
                             <span>Directory</span>
                             <span className="text-zinc-300">/</span>

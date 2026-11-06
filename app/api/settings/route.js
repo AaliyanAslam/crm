@@ -5,8 +5,8 @@ import sequelize from "@/config/sequelize";
 import { QueryTypes } from "sequelize";
 
 const DEFAULT_SETTINGS = {
-    workspaceName: "Devskarnel CRM Agency",
-    companyEmail: "admin@devskarnel.com",
+    workspaceName: "CRM",
+    companyEmail: "admin@crm.com",
     defaultCurrency: "USD",
     timezone: "Asia/Karachi",
     fiscalYearStart: "January",

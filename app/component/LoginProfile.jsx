@@ -82,7 +82,7 @@ const LoginProfile = () => {
                 setPhone(s.phone || "+92 300 1234567");
                 setDesignation(s.designation || "Lead Software Engineer");
                 setDepartment(s.department || "Engineering");
-                setBio(s.bio || "Full-stack developer at Devskarnel CRM. Passionate about performant Next.js applications and cloud architecture.");
+                setBio(s.bio || "Full-stack developer at CRM. Passionate about performant Next.js applications and cloud architecture.");
                 setTimezone(s.timezone || "Asia/Karachi (UTC+05:00)");
                 setLanguage(s.language || "en");
                 setStatus(s.status || "Available");

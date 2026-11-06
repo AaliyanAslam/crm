@@ -5,8 +5,8 @@ import "./globals.css";
 
 
 export const metadata = {
-  title: "Client Portal | Devkarnel CRM",
-  description: "Manage your projects, track progress, and collaborate with the Devkarnel team in real-time.",
+  title: "CRM",
+  description: "Manage your projects, track progress, and collaborate in real-time.",
 };
 export default function RootLayout({ children }) {
   return (

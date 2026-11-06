@@ -19,8 +19,8 @@ import { inter } from "@/app/fonts";
 import { useSettings } from "@/app/hooks/useSettings";
 
 const DEFAULT_SETTINGS = {
-    workspaceName: "Devskarnel CRM Agency",
-    companyEmail: "admin@devskarnel.com",
+    workspaceName: "CRM",
+    companyEmail: "admin@crm.com",
     defaultCurrency: "USD",
     timezone: "Asia/Karachi",
     fiscalYearStart: "January",
@@ -139,7 +139,7 @@ export default function SettingsPage() {
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-zinc-200/80 pb-4">
                     <div>
                         <div className="flex items-center gap-2 text-xs font-medium text-zinc-500 mb-1">
-                            <span>{localSettings.workspaceName || "Devskarnel CRM"}</span>
+                            <span>{localSettings.workspaceName || "CRM"}</span>
                             <span className="text-zinc-300">/</span>
                             <span>Workspace</span>
                             <span className="text-zinc-300">/</span>
