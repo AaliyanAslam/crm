@@ -369,12 +369,15 @@ const CommentSidebar = ({ card, isOpen, onClose }) => {
 
     useEffect(() => {
         if (!isOpen) {
-            setCommentText('');
-            setDescriptionText('');
-            setCommentEditingId(null);
-            setDescriptionEditingId(null);
-            setCommentEditText('');
-            setDescriptionEditText('');
+            const timer = setTimeout(() => {
+                setCommentText('');
+                setDescriptionText('');
+                setCommentEditingId(null);
+                setDescriptionEditingId(null);
+                setCommentEditText('');
+                setDescriptionEditText('');
+            }, 0);
+            return () => clearTimeout(timer);
         }
     }, [isOpen, card?.card_id]);
 

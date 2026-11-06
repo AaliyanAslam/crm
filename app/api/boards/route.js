@@ -36,8 +36,7 @@
  *         description: Server error
  */
 
-// ... your existing imports and code ...
-import Board from "@/models/Board";
+import { Board, List, Card } from "@/models/index";
 import { NextResponse } from "next/server";
 import { connectDB } from "@/config/sequelize";
 
@@ -79,6 +78,20 @@ export async function GET() {
     try {
         await connectDB();
         const allBoards = await Board.findAll({
+            include: [
+                {
+                    model: List,
+                    as: "lists",
+                    attributes: ["list_id", "name"],
+                    include: [
+                        {
+                            model: Card,
+                            as: "cards",
+                            attributes: ["card_id", "priority"]
+                        }
+                    ]
+                }
+            ],
             order: [["created_at", "DESC"]]
         });
 

@@ -1,164 +1,137 @@
-"use client"
-import React, { useState, useEffect, useRef } from 'react'
-import { Layers, Plus, ArrowRight, Sparkles } from 'lucide-react'
-import gsap from 'gsap'
-import { urbanist } from '@/app/fonts'
-import { MdOutlineDeleteOutline } from "react-icons/md";
-import CreateNewBoardFormModel from './CreateNewBoardFormModel'
-import { useRouter } from 'next/navigation'
-import useSWR from 'swr'
-import Link from 'next/link'
-import { toast } from 'sonner'
-
+"use client";
+import React, { useState, useMemo } from 'react';
+import {
+    Plus,
+    Search,
+    ArrowUpRight,
+    Trash2,
+    Calendar,
+    Kanban,
+    Layers,
+    CheckSquare,
+    AlertCircle,
+    SlidersHorizontal,
+    FolderKanban,
+    X,
+} from 'lucide-react';
+import { inter } from '@/app/fonts';
+import CreateNewBoardFormModel from './CreateNewBoardFormModel';
+import { useRouter } from 'next/navigation';
+import useSWR from 'swr';
+import Link from 'next/link';
+import { toast } from 'sonner';
 
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
+const formatDate = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+    });
+};
 
 const AllBoards = () => {
-    const [boards, setBoards] = useState([])
-    const [loading, setLoading] = useState(true)
-    const [error, setError] = useState(null)
-    const [isModalOpen, setIsModalOpen] = useState(false)
-    const router = useRouter()
-    const headerRef = useRef(null)
-    const gridRef = useRef(null)
-    const cardsRef = useRef([])
+    const router = useRouter();
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [sortBy, setSortBy] = useState('recent'); // 'recent' | 'name' | 'tasks' | 'lists'
+    const [deletingId, setDeletingId] = useState(null);
 
-    const { data, error: swrError, isLoading: swrLoading, mutate } = useSWR('/api/boards', fetcher, {
+    const { data, error, isLoading, mutate } = useSWR('/api/boards', fetcher, {
         revalidateOnFocus: false,
-        dedupingInterval: 60000,
-    })
+        dedupingInterval: 30000,
+    });
 
+    const rawBoards = useMemo(() => {
+        if (!data || !data.boards) return [];
+        return Array.isArray(data.boards) ? data.boards : [data.boards];
+    }, [data]);
 
+    // KPI Metrics calculation
+    const metrics = useMemo(() => {
+        let totalTasks = 0;
+        let totalLists = 0;
+        let highPriorityTasks = 0;
 
-
-    const formatDateTime = (date) => {
-        if (!date) return '';
-        return new Date(date).toLocaleString('en-GB', {
-            weekday: 'short',
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: true,
+        rawBoards.forEach((board) => {
+            const lists = board.lists || [];
+            totalLists += lists.length;
+            lists.forEach((list) => {
+                const cards = list.cards || [];
+                totalTasks += cards.length;
+                cards.forEach((card) => {
+                    if (card.priority === 'High') {
+                        highPriorityTasks += 1;
+                    }
+                });
+            });
         });
-    };
 
-    const handleDelete = async (boardId) => {
-        if (!confirm("Are you sure you want to delete this board? This action cannot be undone.")) {
+        return {
+            totalBoards: rawBoards.length,
+            totalTasks,
+            totalLists,
+            highPriorityTasks,
+        };
+    }, [rawBoards]);
+
+    // Filter and sort boards
+    const filteredBoards = useMemo(() => {
+        return rawBoards
+            .filter((board) => {
+                const query = searchQuery.toLowerCase().trim();
+                if (!query) return true;
+                const name = (board.name || '').toLowerCase();
+                const desc = (board.description || '').toLowerCase();
+                return name.includes(query) || desc.includes(query);
+            })
+            .sort((a, b) => {
+                if (sortBy === 'name') {
+                    return (a.name || '').localeCompare(b.name || '');
+                }
+                if (sortBy === 'tasks') {
+                    const countA = (a.lists || []).reduce((acc, l) => acc + (l.cards?.length || 0), 0);
+                    const countB = (b.lists || []).reduce((acc, l) => acc + (l.cards?.length || 0), 0);
+                    return countB - countA;
+                }
+                if (sortBy === 'lists') {
+                    const countA = (a.lists || []).length;
+                    const countB = (b.lists || []).length;
+                    return countB - countA;
+                }
+                // default recent
+                return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+            });
+    }, [rawBoards, searchQuery, sortBy]);
+
+    const handleDelete = async (e, boardId, boardTitle) => {
+        e.stopPropagation();
+        if (!confirm(`Are you sure you want to delete "${boardTitle}"? This will delete all columns and tasks.`)) {
             return;
         }
+
         try {
+            setDeletingId(boardId);
             const res = await fetch(`/api/boards/${boardId}`, {
-                method: 'DELETE'
+                method: 'DELETE',
             });
-            if (res.ok) {
-                toast.success("Board deleted successfully!");
-            }
 
             if (!res.ok) {
-                const data = await res.json();
-                throw new Error(data.message || 'Failed to delete board');
+                const errData = await res.json();
+                throw new Error(errData.message || 'Failed to delete board');
             }
-            try { await mutate(); } catch (e) { setBoards(prev => prev.filter(board => board.board_id !== boardId)); }
+
+            toast.success('Board deleted successfully');
+            await mutate();
         } catch (err) {
-            console.error("Delete error:", err);
-            alert(err.message || "An error occurred while deleting the board.");
+            toast.error(err.message || 'Failed to delete board');
+        } finally {
+            setDeletingId(null);
         }
-    }
-
-    useEffect(() => {
-        if (swrLoading) {
-            setLoading(true)
-            return
-        }
-
-        if (swrError) {
-            setError(swrError.message || 'Failed to fetch boards')
-            setLoading(false)
-            return
-        }
-
-        if (data) {
-            if (data.success) {
-                setBoards(data.boards || (data.board ? [data.board] : []))
-                setError(null)
-            } else {
-                setError(data.message || 'Failed to fetch boards')
-            }
-            setLoading(false)
-        }
-    }, [data, swrError, swrLoading])
-
-    useEffect(() => {
-        if (!loading && boards.length > 0) {
-            const ctx = gsap.context(() => {
-                gsap.fromTo(headerRef.current,
-                    { opacity: 0, y: -20 },
-                    { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }
-                )
-
-                gsap.fromTo(cardsRef.current,
-                    { opacity: 0, y: 40, scale: 0.96 },
-                    {
-                        opacity: 1,
-                        y: 0,
-                        scale: 1,
-                        duration: 0.55,
-                        stagger: 0.08,
-                        ease: "back.out(1.2)",
-                        delay: 0.2
-                    }
-                )
-            })
-
-            return () => ctx.revert()
-        }
-    }, [loading, boards])
-
-    const handleCardHover = (index, isEntering) => {
-        const card = cardsRef.current[index]
-        if (!card) return
-
-        gsap.to(card, {
-            scale: isEntering ? 1.02 : 1,
-            y: isEntering ? -4 : 0,
-            duration: 0.35,
-            ease: "power2.out"
-        })
-
-        const inner = card.querySelector('.inner-card')
-        if (!inner) return
-
-        gsap.to(inner, {
-            boxShadow: isEntering
-                ? "0 16px 32px -8px rgba(0,0,0,0.12)"
-                : "0 4px 6px -1px rgba(0,0,0,0.05)",
-            duration: 0.35
-        })
-    }
-
-    if (loading) return (
-        <div className={`min-h-[50vh] bg-neutral-50 flex items-center justify-center py-8 ${urbanist.className}`}>
-            <div className="flex flex-col items-center gap-2">
-                <div className="w-7 h-7 border-2 border-neutral-300 border-t-neutral-900 rounded-full animate-spin" />
-                <span className="text-xs text-neutral-500 tracking-wide">Loading workspace…</span>
-            </div>
-        </div>
-    )
-
-    if (error) return (
-        <div className="min-h-[50vh] bg-neutral-50 flex items-center justify-center p-4 sm:p-6">
-            <div className="text-center max-w-sm">
-                <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <Sparkles className="w-6 h-6 text-red-400" />
-                </div>
-                <h3 className="text-base font-semibold text-red-900 mb-1">Something went wrong</h3>
-                <p className="text-red-600/80 text-xs sm:text-sm">{error}</p>
-            </div>
-        </div>
-    )
+    };
 
     return (
         <>
@@ -171,176 +144,317 @@ const AllBoards = () => {
                 }}
             />
 
-            <div className={`min-h-screen bg-[#ebf5f7] px-3 py-4 sm:px-4 sm:py-5 md:px-6 md:py-7 lg:px-8 lg:py-8 font-sans selection:bg-neutral-900 selection:text-white ${urbanist.className}`}>
-                <div className="max-w-7xl mx-auto w-full min-w-0">
-                    <header ref={headerRef} className="flex flex-col md:flex-row md:justify-between md:items-end gap-4 mb-6 md:mb-8 opacity-0">
-                        <div className="space-y-2 min-w-0">
-                            <div className="flex items-center gap-1.5 text-[10px] font-semibold tracking-[0.16em] text-neutral-400 uppercase">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                                Workspace
+            <div className={`min-h-screen bg-zinc-50/70 text-zinc-900 ${inter.className}`}>
+                <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+                    {/* Header */}
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-zinc-200/80 pb-6">
+                        <div>
+                            <div className="flex items-center gap-2 text-xs font-medium text-zinc-500">
+                                <span>Workspace</span>
+                                <span>/</span>
+                                <span className="text-zinc-900 font-semibold">Boards</span>
                             </div>
-                            <div className="flex flex-wrap items-center gap-2 gap-y-2">
-                                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight leading-tight bg-linear-to-r from-[#3d9ca8] to-[#128fa0] bg-clip-text text-transparent">
-                                    Your boards
-                                </h1>
-                                <Link
-                                    href="/chats"
-                                    className="inline-flex items-center rounded-full bg-emerald-500 px-3 py-1 text-[11px] font-semibold text-white shadow-sm hover:bg-emerald-600 transition-colors"
-                                >
-                                    Chat
-                                </Link>
-                            </div>
-                            <p className="text-neutral-500 text-sm md:text-base max-w-md leading-snug">
-                                Ideas, tasks, and everything that matters — in one place.
+                            <h1 className="mt-1 text-2xl font-bold tracking-tight text-zinc-900 sm:text-3xl">
+                                Kanban & Delivery Boards
+                            </h1>
+                            <p className="mt-1 text-xs sm:text-sm text-zinc-500 max-w-2xl">
+                                Visualize workflows, track tasks from backlog to completion, and align cross-functional sprints.
                             </p>
                         </div>
 
-                        <div className="flex bg-white p-3 rounded-xl border-2 border-[#3d9ca8]/80 items-center justify-between gap-3 shrink-0 w-full md:w-auto">
-                            <div className="text-right min-w-0">
-                                <div className="text-start text-3xl sm:text-4xl font-bold text-[#128fa0] tabular-nums leading-none">
-                                    {boards.length}
-                                </div>
-                                <div className="text-xs font-semibold text-neutral-800 uppercase mt-1 tracking-wide">
-                                    Active boards
-                                </div>
-                            </div>
+                        <div className="flex items-center gap-2.5">
+                            <Link
+                                href="/projects"
+                                className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-200/90 bg-white px-3.5 py-2 text-xs font-semibold text-zinc-700 shadow-xs hover:bg-zinc-50 transition-colors"
+                            >
+                                <FolderKanban className="h-3.5 w-3.5 text-zinc-500" />
+                                Projects
+                            </Link>
                             <button
                                 type="button"
                                 onClick={() => setIsModalOpen(true)}
-                                className="hidden md:inline-flex items-center gap-1.5 bg-[#49bac9] text-white px-4 py-2 rounded-lg text-xs font-medium hover:bg-[#3aa8b7] transition-colors active:scale-95 shrink-0"
+                                className="inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-zinc-800 active:scale-98 transition-all"
                             >
-                                <Plus className="w-3.5 h-3.5" />
-                                New board
+                                <Plus className="h-3.5 w-3.5 stroke-[2.5]" />
+                                New Board
                             </button>
-                        </div>
-                    </header>
-
-                    <div ref={gridRef} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-5 lg:gap-6">
-                        {boards.map((board, index) => (
-                            <div
-                                key={board.board_id}
-                                ref={el => cardsRef.current[index] = el}
-                                onMouseEnter={() => handleCardHover(index, true)}
-                                onMouseLeave={() => handleCardHover(index, false)}
-                                className="group relative cursor-pointer opacity-0 perspective-1000"
-                                onClick={() => router.push(`/board/${board.board_id}`)}
-                            >
-                                <div className="relative aspect-16/10 rounded-2xl p-2.5 sm:p-3 transition-all duration-400 ease-out group-hover:-translate-y-1">
-
-                                    <div
-                                        className="absolute inset-0 rounded-2xl transition-transform duration-400 group-hover:scale-[1.01] shadow-[0_12px_36px_rgba(0,0,0,0.06)]"
-                                        style={{ backgroundColor: board.bg_color || '#57C9D8' }}
-                                    >
-                                        <div className="absolute -bottom-8 -left-8 w-28 h-28 bg-white/20 rounded-full blur-[48px] opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                                    </div>
-
-                                    <button
-                                        type="button"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDelete(board.board_id);
-                                        }}
-                                        className="absolute top-1.5 right-4 z-30 p-1 rounded-lg bg-white/25 backdrop-blur-md text-white border border-red-200/60 hover:bg-red-500 hover:border-red-500 opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 transition-all duration-300"
-                                        title="Delete board"
-                                    >
-                                        <MdOutlineDeleteOutline size={17} />
-                                    </button>
-
-                                    <div className="inner-card relative h-full w-full bg-white/75 backdrop-blur-xl rounded-[18px] p-4 sm:p-4 shadow-[0_6px_24px_0_rgba(31,38,135,0.06)] border border-white/60 flex flex-col justify-between overflow-hidden">
-
-                                        <div className="absolute -inset-full top-0 block w-1/2 h-full z-5 bg-linear-to-r from-transparent via-white/35 to-transparent -skew-x-12 group-hover:animate-shine" />
-
-                                        <div className="flex justify-between items-start gap-2 z-10 min-w-0">
-                                            <div className="space-y-1 min-w-0 flex-1">
-                                                <h2 className="text-lg sm:text-xl font-bold text-neutral-800 tracking-tight leading-tight line-clamp-2">
-                                                    {board.name}
-                                                </h2>
-                                                {board.description ? (
-                                                    <p className="text-[11px] font-medium text-neutral-500/90 line-clamp-2 leading-snug max-w-56">
-                                                        {board.description}
-                                                    </p>
-                                                ) : (
-                                                    <p className="text-[11px] italic text-neutral-400">No description</p>
-                                                )}
-                                            </div>
-
-                                            <div
-                                                style={{ "--hover-color": board?.bg_color }}
-                                                className={`
-    w-10 h-10 shrink-0 rounded-xl bg-neutral-50 border border-neutral-100 
-    flex items-center justify-center 
-    duration-400 shadow-sm
-    group-hover:bg-(--hover-color)
-    group-hover:text-white 
-    group-hover:border-(--hover-color)
-  `}
-                                            >
-                                                <Layers className="w-4 h-4" strokeWidth={1.8} />
-                                            </div>
-                                        </div>
-
-                                        <div className="flex items-center justify-between gap-2 z-10 mt-4 min-w-0">
-                                            <div className="min-w-0">
-                                                <span className="text-[9px] uppercase tracking-wider text-neutral-400 font-bold block">
-                                                    Activity
-                                                </span>
-                                                <span
-                                                    className="text-[11px] font-semibold text-neutral-600 cursor-help line-clamp-1"
-                                                    title={formatDateTime(board.created_at)}
-                                                >
-                                                    {formatDateTime(board.created_at)}
-                                                </span>
-                                            </div>
-
-                                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900 text-white rounded-lg text-[11px] font-bold shadow-md shadow-neutral-900/10 shrink-0 pointer-events-none">
-                                                Open
-                                                <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-
-                        <div
-                            onClick={() => setIsModalOpen(true)}
-                            className="group relative cursor-pointer opacity-0"
-                            ref={el => cardsRef.current[boards.length] = el}
-                        >
-                            <div className="aspect-16/10 rounded-2xl border-2 border-dashed border-neutral-200 bg-neutral-50/50 hover:bg-white hover:border-[#1fd6ee] hover:shadow-lg hover:shadow-[#1fd6ee]/10 flex flex-col items-center justify-center gap-2.5 py-6 transition-all duration-400 group-hover:-translate-y-0.5">
-                                <div className="w-12 h-12 rounded-2xl bg-white shadow-lg shadow-neutral-200/40 flex items-center justify-center group-hover:scale-105 border border-neutral-100 transition-transform">
-                                    <Plus className="w-6 h-6 text-[#49bac9]" strokeWidth={2.25} />
-                                </div>
-                                <div className="text-center px-2">
-                                    <span className="block text-xs font-bold text-neutral-800">Create new board</span>
-                                    <span className="text-[9px] font-medium text-neutral-400 uppercase tracking-wider">Add to workspace</span>
-                                </div>
-                            </div>
                         </div>
                     </div>
 
-                    {!boards.length && (
-                        <div className="text-center py-12 sm:py-14">
-                            <div className="w-14 h-14 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                                <Layers className="w-7 h-7 text-neutral-300" />
+                    {/* KPI Quick Stats */}
+                    <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+                        <div className="rounded-xl border border-zinc-200/80 bg-white p-4 shadow-xs">
+                            <div className="flex items-center justify-between text-zinc-500">
+                                <span className="text-[11px] font-semibold uppercase tracking-wider">
+                                    Total Boards
+                                </span>
+                                <Kanban className="h-4 w-4 text-zinc-400" />
                             </div>
-                            <h3 className="text-base font-semibold text-neutral-900 mb-1">No boards yet</h3>
-                            <p className="text-neutral-500 text-sm mb-4">Create your first board to get started</p>
+                            <div className="mt-2 text-2xl font-bold tracking-tight text-zinc-900">
+                                {isLoading ? '—' : metrics.totalBoards}
+                            </div>
+                            <p className="mt-0.5 text-[11px] text-zinc-500">Active workspaces</p>
+                        </div>
+
+                        <div className="rounded-xl border border-zinc-200/80 bg-white p-4 shadow-xs">
+                            <div className="flex items-center justify-between text-zinc-500">
+                                <span className="text-[11px] font-semibold uppercase tracking-wider">
+                                    Total Tasks
+                                </span>
+                                <CheckSquare className="h-4 w-4 text-emerald-600" />
+                            </div>
+                            <div className="mt-2 text-2xl font-bold tracking-tight text-zinc-900">
+                                {isLoading ? '—' : metrics.totalTasks}
+                            </div>
+                            <p className="mt-0.5 text-[11px] text-zinc-500">Cards across all lists</p>
+                        </div>
+
+                        <div className="rounded-xl border border-zinc-200/80 bg-white p-4 shadow-xs">
+                            <div className="flex items-center justify-between text-zinc-500">
+                                <span className="text-[11px] font-semibold uppercase tracking-wider">
+                                    Workflow Columns
+                                </span>
+                                <Layers className="h-4 w-4 text-indigo-600" />
+                            </div>
+                            <div className="mt-2 text-2xl font-bold tracking-tight text-zinc-900">
+                                {isLoading ? '—' : metrics.totalLists}
+                            </div>
+                            <p className="mt-0.5 text-[11px] text-zinc-500">Pipeline stages</p>
+                        </div>
+
+                        <div className="rounded-xl border border-zinc-200/80 bg-white p-4 shadow-xs">
+                            <div className="flex items-center justify-between text-zinc-500">
+                                <span className="text-[11px] font-semibold uppercase tracking-wider">
+                                    High Priority
+                                </span>
+                                <AlertCircle className="h-4 w-4 text-rose-500" />
+                            </div>
+                            <div className="mt-2 text-2xl font-bold tracking-tight text-zinc-900">
+                                {isLoading ? '—' : metrics.highPriorityTasks}
+                            </div>
+                            <p className="mt-0.5 text-[11px] text-zinc-500">Urgent deliverables</p>
+                        </div>
+                    </div>
+
+                    {/* Controls: Search and Sort */}
+                    <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="relative flex-1 max-w-md">
+                            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+                            <input
+                                type="text"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                placeholder="Search boards by title or description…"
+                                className="w-full rounded-xl border border-zinc-200/90 bg-white py-2 pl-9.5 pr-8 text-xs sm:text-sm text-zinc-900 placeholder:text-zinc-400 shadow-xs focus:border-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 transition-colors"
+                            />
+                            {searchQuery && (
+                                <button
+                                    onClick={() => setSearchQuery('')}
+                                    className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-zinc-400 hover:text-zinc-600"
+                                >
+                                    <X className="h-3.5 w-3.5" />
+                                </button>
+                            )}
+                        </div>
+
+                        <div className="flex items-center gap-2 self-end sm:self-auto">
+                            <div className="flex items-center gap-1.5 rounded-xl border border-zinc-200/90 bg-white px-3 py-2 shadow-xs">
+                                <SlidersHorizontal className="h-3.5 w-3.5 text-zinc-400" />
+                                <span className="text-xs text-zinc-500 font-medium">Sort:</span>
+                                <select
+                                    value={sortBy}
+                                    onChange={(e) => setSortBy(e.target.value)}
+                                    className="bg-transparent text-xs font-semibold text-zinc-800 outline-none cursor-pointer"
+                                >
+                                    <option value="recent">Recently Created</option>
+                                    <option value="name">Board Name (A-Z)</option>
+                                    <option value="tasks">Most Tasks</option>
+                                    <option value="lists">Most Columns</option>
+                                </select>
+                            </div>
+
+                            <span className="text-xs font-medium text-zinc-500 hidden sm:inline-block">
+                                Showing <strong className="text-zinc-900">{filteredBoards.length}</strong> of{' '}
+                                {rawBoards.length}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Loading State */}
+                    {isLoading && (
+                        <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                            {[1, 2, 3, 4, 5, 6].map((idx) => (
+                                <div
+                                    key={idx}
+                                    className="h-44 rounded-2xl border border-zinc-200/80 bg-white p-5 animate-pulse shadow-xs"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-9 w-9 rounded-xl bg-zinc-100" />
+                                        <div className="flex-1 space-y-2">
+                                            <div className="h-4 w-3/4 rounded bg-zinc-100" />
+                                            <div className="h-3 w-1/2 rounded bg-zinc-100" />
+                                        </div>
+                                    </div>
+                                    <div className="mt-5 space-y-2">
+                                        <div className="h-3 w-full rounded bg-zinc-100" />
+                                        <div className="h-3 w-4/5 rounded bg-zinc-100" />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Error State */}
+                    {error && (
+                        <div className="mt-8 rounded-2xl border border-rose-200 bg-rose-50/70 p-6 text-center text-rose-800">
+                            <AlertCircle className="mx-auto h-8 w-8 text-rose-500 mb-2" />
+                            <h3 className="text-sm font-semibold">Unable to load boards</h3>
+                            <p className="mt-1 text-xs text-rose-600">{error.message || 'Database connection error'}</p>
                             <button
                                 type="button"
-                                onClick={() => setIsModalOpen(true)}
-                                className="inline-flex items-center gap-1.5 bg-neutral-900 text-white px-4 py-2 rounded-full text-xs font-medium hover:bg-neutral-800 transition-colors"
+                                onClick={() => mutate()}
+                                className="mt-4 rounded-xl bg-rose-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-rose-700"
                             >
-                                <Plus className="w-3.5 h-3.5" />
-                                Create board
+                                Try Again
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Boards Grid */}
+                    {!isLoading && !error && (
+                        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                            {filteredBoards.map((board) => {
+                                const lists = board.lists || [];
+                                const totalCardCount = lists.reduce(
+                                    (acc, list) => acc + (list.cards?.length || 0),
+                                    0
+                                );
+                                const highCardCount = lists.reduce(
+                                    (acc, list) =>
+                                        acc +
+                                        (list.cards?.filter((c) => c.priority === 'High')?.length || 0),
+                                    0
+                                );
+                                const accentColor = board.bg_color || '#4f46e5';
+
+                                return (
+                                    <div
+                                        key={board.board_id}
+                                        onClick={() => router.push(`/board/${board.board_id}`)}
+                                        className="group relative flex flex-col justify-between rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-xs hover:border-zinc-300 hover:shadow-md transition-all cursor-pointer"
+                                    >
+                                        {/* Top Color Accent Line */}
+                                        <div
+                                            className="absolute inset-x-0 top-0 h-1.5 rounded-t-2xl transition-opacity group-hover:h-2"
+                                            style={{ backgroundColor: accentColor }}
+                                        />
+
+                                        <div>
+                                            {/* Card Top Row */}
+                                            <div className="flex items-start justify-between gap-3 pt-1">
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                    <div
+                                                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white shadow-xs transition-transform group-hover:scale-105"
+                                                        style={{ backgroundColor: accentColor }}
+                                                    >
+                                                        <Kanban className="h-4.5 w-4.5" />
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <h3 className="truncate text-base font-semibold text-zinc-900 group-hover:text-indigo-600 transition-colors">
+                                                            {board.name}
+                                                        </h3>
+                                                        <div className="flex items-center gap-1.5 text-[11px] text-zinc-400">
+                                                            <Calendar className="h-3 w-3" />
+                                                            <span>{formatDate(board.created_at)}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => handleDelete(e, board.board_id, board.name)}
+                                                    disabled={deletingId === board.board_id}
+                                                    className="rounded-lg p-1.5 text-zinc-300 hover:bg-rose-50 hover:text-rose-600 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                                                    title="Delete Board"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </button>
+                                            </div>
+
+                                            {/* Description */}
+                                            <p className="mt-3 text-xs leading-relaxed text-zinc-500 line-clamp-2 min-h-8">
+                                                {board.description || 'No description provided for this board.'}
+                                            </p>
+                                        </div>
+
+                                        {/* Card Footer */}
+                                        <div className="mt-5 border-t border-zinc-100 pt-3.5 flex items-center justify-between">
+                                            <div className="flex items-center gap-3 text-xs text-zinc-600 font-medium">
+                                                <span className="flex items-center gap-1">
+                                                    <Layers className="h-3.5 w-3.5 text-zinc-400" />
+                                                    <span>{lists.length}</span>
+                                                    <span className="text-[11px] text-zinc-400">lists</span>
+                                                </span>
+                                                <span className="flex items-center gap-1">
+                                                    <CheckSquare className="h-3.5 w-3.5 text-zinc-400" />
+                                                    <span>{totalCardCount}</span>
+                                                    <span className="text-[11px] text-zinc-400">tasks</span>
+                                                </span>
+                                                {highCardCount > 0 && (
+                                                    <span className="inline-flex items-center gap-0.5 rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-700 ring-1 ring-rose-200">
+                                                        {highCardCount} urgent
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            <div className="inline-flex items-center gap-1 text-xs font-semibold text-zinc-700 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all">
+                                                Open
+                                                <ArrowUpRight className="h-3.5 w-3.5" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+
+                            {/* Create New Board Card */}
+                            <div
+                                onClick={() => setIsModalOpen(true)}
+                                className="flex min-h-44 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-zinc-200 bg-white/50 p-6 text-center hover:border-zinc-400 hover:bg-white transition-all cursor-pointer group"
+                            >
+                                <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-700 shadow-xs group-hover:scale-105 group-hover:border-zinc-900 group-hover:text-zinc-900 transition-all">
+                                    <Plus className="h-5 w-5" />
+                                </div>
+                                <h4 className="mt-3 text-xs font-semibold text-zinc-900">
+                                    Create New Board
+                                </h4>
+                                <p className="mt-0.5 text-[11px] text-zinc-500">
+                                    Add a new sprint or project column workspace
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Zero State if filtered */}
+                    {!isLoading && !error && filteredBoards.length === 0 && searchQuery && (
+                        <div className="mt-12 text-center py-12 rounded-2xl border border-zinc-200/80 bg-white p-8">
+                            <Search className="mx-auto h-8 w-8 text-zinc-300 mb-2" />
+                            <h3 className="text-sm font-semibold text-zinc-900">No boards found</h3>
+                            <p className="mt-1 text-xs text-zinc-500">
+                                No board matching &ldquo;{searchQuery}&rdquo;. Try another search term.
+                            </p>
+                            <button
+                                type="button"
+                                onClick={() => setSearchQuery('')}
+                                className="mt-3 text-xs font-semibold text-indigo-600 hover:underline"
+                            >
+                                Clear search filter
                             </button>
                         </div>
                     )}
                 </div>
             </div>
-
         </>
-    )
-}
+    );
+};
 
-export default AllBoards
+export default AllBoards;

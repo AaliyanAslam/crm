@@ -1,25 +1,22 @@
-"use client"
+"use client";
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Draggable } from '@hello-pangea/dnd';
-import { MoreHorizontal, Trash2, Edit3, Circle, Calendar } from 'lucide-react';
-import { urbanist } from '@/app/fonts';
-
+import { MoreHorizontal, Trash2, Edit3, Circle, Calendar, X } from 'lucide-react';
+import { inter } from '@/app/fonts';
 
 const PRIORITY_CONFIG = {
-    High: { label: 'High', color: '#f87168', bg: 'rgba(248,113,104,0.12)' },
-    Medium: { label: 'Medium', color: '#f5a623', bg: 'rgba(245,166,35,0.12)' },
-    Low: { label: 'Low', color: '#4bce97', bg: 'rgba(75,206,151,0.12)' },
+    High: { label: 'High', color: '#f87171', bg: 'rgba(248, 113, 113, 0.12)', border: 'rgba(248, 113, 113, 0.25)' },
+    Medium: { label: 'Medium', color: '#fbbf24', bg: 'rgba(251, 191, 36, 0.12)', border: 'rgba(251, 191, 36, 0.25)' },
+    Low: { label: 'Low', color: '#34d399', bg: 'rgba(52, 211, 153, 0.12)', border: 'rgba(52, 211, 153, 0.25)' },
 };
 
 const DUE_STYLES = {
-    overdue: { color: '#f87168', bg: 'rgba(248,113,104,0.1)', border: 'rgba(248,113,104,0.22)', leftAccent: '#f87168' },
-    today: { color: '#f5a623', bg: 'rgba(245,166,35,0.1)', border: 'rgba(245,166,35,0.22)', leftAccent: '#f5a623' },
-    future: { color: '#9fadbc', bg: 'rgba(155,173,188,0.07)', border: 'rgba(155,173,188,0.14)', leftAccent: null },
+    overdue: { color: '#f87171', bg: 'rgba(248, 113, 113, 0.1)', border: 'rgba(248, 113, 113, 0.25)', leftAccent: '#f87171' },
+    today: { color: '#fbbf24', bg: 'rgba(251, 191, 36, 0.1)', border: 'rgba(251, 191, 36, 0.25)', leftAccent: '#fbbf24' },
+    future: { color: '#94a3b8', bg: 'rgba(148, 163, 184, 0.08)', border: 'rgba(148, 163, 184, 0.15)', leftAccent: null },
     none: { color: null, bg: null, border: null, leftAccent: null },
 };
-
-
 
 export const formatDueDate = (dateString) => {
     if (!dateString) return null;
@@ -44,19 +41,18 @@ export const getDueDateStatus = (dateString) => {
     return 'future';
 };
 
-
 const CardMenu = ({ anchorRef, card, onClose, onEdit, onUpdate }) => {
     const [pos, setPos] = useState(null);
 
     useEffect(() => {
         const rect = anchorRef.current?.getBoundingClientRect();
         if (!rect) return;
-        const MENU_WIDTH = 192; // w-48
+        const MENU_WIDTH = 180;
         setPos({
             top: rect.bottom + 6,
             left: Math.max(8, rect.right - MENU_WIDTH),
         });
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [anchorRef]);
 
     useEffect(() => {
         const close = () => onClose();
@@ -97,68 +93,55 @@ const CardMenu = ({ anchorRef, card, onClose, onEdit, onUpdate }) => {
             />
 
             <div
-                className={`fixed z-9999 w-48 ${urbanist.className}`}
+                className={`fixed z-9999 w-44 ${inter.className}`}
                 style={{ top: pos.top, left: pos.left }}
                 onClick={(e) => e.stopPropagation()}
             >
-                <style>{`
-                    @keyframes cardMenuIn {
-                        from { opacity: 0; transform: scale(0.94) translateY(-6px); }
-                        to   { opacity: 1; transform: scale(1)    translateY(0px);  }
-                    }
-                `}</style>
-                <div
-                    className="bg-[#1d2125] border border-[#454f59] rounded-xl shadow-2xl overflow-hidden"
-                    style={{ animation: 'cardMenuIn 0.12s cubic-bezier(0.22,1,0.36,1) both' }}
-                >
-                    <div className="p-1">
-                        {/* Edit */}
+                <div className="bg-[#181a20] border border-zinc-800 rounded-xl shadow-2xl overflow-hidden p-1">
+                    <button
+                        onClick={() => { onEdit(); onClose(); }}
+                        className="flex items-center gap-2 w-full px-2.5 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800/80 rounded-lg transition-colors"
+                    >
+                        <Edit3 className="h-3.5 w-3.5 text-zinc-400" />
+                        Edit Task
+                    </button>
+
+                    <div className="h-px bg-zinc-800/80 my-1" />
+
+                    <p className="px-2.5 py-1 text-[9px] font-bold text-zinc-500 uppercase tracking-wider">
+                        Set Priority
+                    </p>
+                    {Object.entries(PRIORITY_CONFIG).map(([key, val]) => (
                         <button
-                            onClick={() => { onEdit(); onClose(); }}
-                            className="flex items-center gap-2 w-full px-3 py-2 text-xs text-[#b6c2cf] hover:bg-white/5 rounded-lg transition-colors"
+                            key={key}
+                            onClick={() => handlePriority(key)}
+                            className="flex items-center justify-between w-full px-2.5 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800/80 rounded-lg transition-colors"
                         >
-                            <Edit3 size={12} className="text-[#9fadbc]" />
-                            Edit Card
+                            <span className="flex items-center gap-2">
+                                <Circle size={7} fill={val.color} color={val.color} />
+                                {val.label}
+                            </span>
+                            {card.priority === key && (
+                                <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                            )}
                         </button>
+                    ))}
 
-                        <div className="h-px bg-[#454f59]/50 my-0.5" />
+                    <div className="h-px bg-zinc-800/80 my-1" />
 
-                        <p className="px-3 py-1.5 text-[9px] font-black text-[#9fadbc]/35 uppercase tracking-widest">
-                            Priority
-                        </p>
-                        {Object.entries(PRIORITY_CONFIG).map(([key, val]) => (
-                            <button
-                                key={key}
-                                onClick={() => handlePriority(key)}
-                                className="flex items-center justify-between w-full px-3 py-2 text-xs text-[#b6c2cf] hover:bg-white/5 rounded-lg transition-colors"
-                            >
-                                <span className="flex items-center gap-2">
-                                    <Circle size={8} fill={val.color} color={val.color} />
-                                    {val.label}
-                                </span>
-                                {card.priority === key && (
-                                    <div className="w-1.5 h-1.5 rounded-full bg-[#579dff]" />
-                                )}
-                            </button>
-                        ))}
-
-                        <div className="h-px bg-[#454f59]/50 my-0.5" />
-
-                        <button
-                            onClick={handleDelete}
-                            className="flex items-center gap-2 w-full px-3 py-2 text-xs text-[#f87168] hover:bg-[#f87168]/10 rounded-lg transition-colors"
-                        >
-                            <Trash2 size={12} />
-                            Delete Card
-                        </button>
-                    </div>
+                    <button
+                        onClick={handleDelete}
+                        className="flex items-center gap-2 w-full px-2.5 py-1.5 text-xs text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
+                    >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Delete Task
+                    </button>
                 </div>
             </div>
         </>,
         document.body
     );
 };
-
 
 const TaskCard = React.memo(({ card, index, onCardAdded, onCardClick }) => {
     const [showMenu, setShowMenu] = useState(false);
@@ -169,7 +152,7 @@ const TaskCard = React.memo(({ card, index, onCardAdded, onCardClick }) => {
         due_date: card.due_date
     });
 
-    const btnRef = useRef(null); // anchor for portal menu
+    const btnRef = useRef(null);
 
     const priority = PRIORITY_CONFIG[card.priority] ?? PRIORITY_CONFIG.Medium;
     const dueDateLabel = formatDueDate(card.due_date);
@@ -199,37 +182,29 @@ const TaskCard = React.memo(({ card, index, onCardAdded, onCardClick }) => {
                         {...provided.draggableProps}
                         {...provided.dragHandleProps}
                         onClick={() => !showMenu && onCardClick?.(card)}
-                        className={`
-                            relative group mb-1.5 px-3 py-2.5 rounded-lg border
-                            select-none transition-colors duration-150
-                            ${snapshot.isDragging
-                                ? 'bg-[#2c333a] border-[#454f59]/70 shadow-2xl'
-                                : 'bg-[#22272b] border-transparent hover:border-[#454f59] hover:shadow-md'
-                            }
-                        `}
+                        className={`relative group mb-2 px-3 py-2.5 rounded-xl border select-none transition-all ${
+                            snapshot.isDragging
+                                ? 'bg-[#222630] border-indigo-500/50 shadow-2xl scale-[1.02]'
+                                : 'bg-[#1a1d24] border-zinc-800/80 hover:border-zinc-700 hover:bg-[#1e222b] shadow-xs'
+                        }`}
                         style={{
                             ...provided.draggableProps.style,
-                            // GPU-composite hint while dragging
                             willChange: snapshot.isDragging ? 'transform' : 'auto',
-                            // Subtle left-border urgency accent (hidden while dragging to keep it clean)
                             borderLeft: !snapshot.isDragging && dueStyle.leftAccent
-                                ? `2px solid ${dueStyle.leftAccent}`
+                                ? `3px solid ${dueStyle.leftAccent}`
                                 : undefined,
                         }}
                     >
+                        {/* More Menu Trigger */}
                         <div
                             ref={btnRef}
-                            className="absolute right-2 top-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+                            className="absolute right-2 top-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity"
                         >
                             <button
                                 onClick={(e) => { e.stopPropagation(); setShowMenu(v => !v); }}
-                                className={`
-                                    p-1.5 rounded-md text-[#9fadbc] hover:bg-white/10
-                                    transition-colors duration-100
-                                    ${showMenu ? 'bg-white/10 opacity-100' : ''}
-                                `}
+                                className="p-1 rounded-md text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
                             >
-                                <MoreHorizontal size={14} />
+                                <MoreHorizontal className="h-3.5 w-3.5" />
                             </button>
                         </div>
 
@@ -243,26 +218,29 @@ const TaskCard = React.memo(({ card, index, onCardAdded, onCardClick }) => {
                             />
                         )}
 
-                        <div className="space-y-2">
-                            <p className="text-sm font-medium text-[#b6c2cf] leading-snug pr-6">
+                        <div className="space-y-1.5">
+                            <p className="text-xs font-semibold text-zinc-100 leading-snug pr-6">
                                 {card.title}
                             </p>
 
                             {card.description && (
-                                <p className="text-xs text-[#9fadbc]/55 line-clamp-2 leading-relaxed font-light">
+                                <p className="text-[11px] text-zinc-400 line-clamp-2 leading-relaxed font-normal">
                                     {card.description}
                                 </p>
                             )}
 
-                            <div className="flex items-center justify-between pt-0.5 gap-2 flex-wrap">
+                            <div className="flex items-center justify-between pt-1 gap-2 flex-wrap">
                                 <div className="flex items-center gap-1.5 flex-wrap">
-
                                     <span
-                                        className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full"
-                                        style={{ color: priority.color, background: priority.bg }}
+                                        className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md border"
+                                        style={{
+                                            color: priority.color,
+                                            background: priority.bg,
+                                            borderColor: priority.border,
+                                        }}
                                     >
                                         <span
-                                            className="w-1 h-1 rounded-full"
+                                            className="w-1.5 h-1.5 rounded-full"
                                             style={{ background: priority.color }}
                                         />
                                         {priority.label}
@@ -270,20 +248,20 @@ const TaskCard = React.memo(({ card, index, onCardAdded, onCardClick }) => {
 
                                     {dueDateLabel && (
                                         <span
-                                            className="inline-flex items-center gap-1 text-[9px] font-semibold px-2 py-0.5 rounded-full border"
+                                            className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-md border"
                                             style={{
                                                 color: dueStyle.color,
                                                 background: dueStyle.bg,
                                                 borderColor: dueStyle.border,
                                             }}
                                         >
-                                            <Calendar size={8} />
+                                            <Calendar className="h-2.5 w-2.5" />
                                             {dueDateLabel}
                                         </span>
                                     )}
                                 </div>
 
-                                <span className="text-[9px] text-[#9fadbc]/20 font-mono tracking-tighter shrink-0">
+                                <span className="text-[10px] text-zinc-600 font-mono">
                                     #{card.card_id}
                                 </span>
                             </div>
@@ -292,97 +270,82 @@ const TaskCard = React.memo(({ card, index, onCardAdded, onCardClick }) => {
                 )}
             </Draggable>
 
+            {/* Edit Task Modal */}
             {isEditing && (
                 <div
                     className="fixed inset-0 z-10000 flex items-center justify-center p-4"
                     onClick={(e) => e.target === e.currentTarget && setIsEditing(false)}
                 >
-                    {/* Backdrop */}
                     <div
-                        className="absolute inset-0 bg-black/50 backdrop-blur-[3px]"
+                        className="absolute inset-0 bg-black/60 backdrop-blur-xs"
                         onClick={() => setIsEditing(false)}
                     />
 
-                    <div className="relative w-full max-w-md bg-[#22272b] border border-[#454f59] rounded-xl shadow-2xl overflow-hidden">
-                        <div
-                            className="h-0.5 w-full"
-                            style={{ background: 'linear-gradient(90deg, #579dff 0%, #4bce97 100%)' }}
-                        />
-                        <div className="px-2 py-3  space-y-4">
-                            <h3 className="text-sm font-bold text-[#b6c2cf]">Edit Task</h3>
+                    <div className={`relative w-full max-w-md rounded-2xl bg-[#16191f] border border-zinc-800 p-5 shadow-2xl ${inter.className}`}>
+                        <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+                            <h3 className="text-sm font-semibold text-zinc-100">Edit Task</h3>
+                            <button
+                                onClick={() => setIsEditing(false)}
+                                className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+                        </div>
 
-                            <div className="space-y-3">
-                                <div>
-                                    <label className="block text-[9px] font-black text-[#9fadbc]/35 uppercase tracking-widest mb-1.5">
-                                        Title
-                                    </label>
-                                    <input
-                                        autoFocus
-                                        className="
-                                            w-full bg-[#1d2125] border border-[#454f59] rounded-lg
-                                            px-3 py-2 text-sm text-[#b6c2cf] outline-none
-                                            focus:border-[#579dff]/50 transition-colors
-                                        "
-                                        value={editData.title}
-                                        onChange={(e) => setEditData(p => ({ ...p, title: e.target.value }))}
-                                    />
-                                </div>
+                        <div className="mt-4 space-y-3">
+                            <div>
+                                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
+                                    Title
+                                </label>
+                                <input
+                                    autoFocus
+                                    className="w-full rounded-xl bg-[#111317] border border-zinc-700/80 px-3 py-2 text-xs text-zinc-100 outline-none focus:border-indigo-500"
+                                    value={editData.title}
+                                    onChange={(e) => setEditData(p => ({ ...p, title: e.target.value }))}
+                                />
+                            </div>
 
-                                <div>
-                                    <label className="block text-[9px] font-black text-[#9fadbc]/35 uppercase tracking-widest mb-1.5">
-                                        Description
-                                    </label>
-                                    <textarea
-                                        rows={3}
-                                        className="
-                                            w-full bg-[#1d2125] border border-[#454f59] rounded-lg
-                                            px-3 py-2 text-sm text-[#b6c2cf] outline-none
-                                            focus:border-[#579dff]/50 transition-colors resize-none
-                                        "
-                                        value={editData.description || ''}
-                                        onChange={(e) => setEditData(p => ({ ...p, description: e.target.value }))}
-                                    />
-                                </div>
-                                <div>
+                            <div>
+                                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
+                                    Description
+                                </label>
+                                <textarea
+                                    rows={3}
+                                    className="w-full rounded-xl bg-[#111317] border border-zinc-700/80 px-3 py-2 text-xs text-zinc-100 outline-none focus:border-indigo-500 resize-none"
+                                    value={editData.description || ''}
+                                    onChange={(e) => setEditData(p => ({ ...p, description: e.target.value }))}
+                                />
+                            </div>
 
-                                    <label className="block text-[9px] font-black text-[#9fadbc]/35 uppercase tracking-widest mb-1.5">
-                                        Due Date
-                                    </label>
-                                   <div className='flex justify-center items-center'>
-                                     <Calendar size={14} className="ml-2 absolute left-2.5 text-[#9fadbc]/50 pointer-events-none" />
-
+                            <div>
+                                <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
+                                    Due Date
+                                </label>
+                                <div className="relative flex items-center">
+                                    <Calendar className="h-3.5 w-3.5 absolute left-3 text-zinc-500 pointer-events-none" />
                                     <input
                                         type="date"
                                         value={editData.due_date ? editData.due_date.split('T')[0] : ""}
                                         onChange={(e) => setEditData(p => ({ ...p, due_date: e.target.value }))}
-                                        className="w-full rounded-md pl-9 pr-2.5 py-1.5 text-[11px] text-[#b6c2cf] outline-none ring-1 ring-[#454f59] focus:ring-2 focus:ring-[#579dff]/50 appearance-none bg-[#1d2125] cursor-pointer transition-all"
+                                        className="w-full rounded-xl bg-[#111317] border border-zinc-700/80 pl-9 pr-3 py-1.5 text-xs text-zinc-200 outline-none focus:border-indigo-500 cursor-pointer"
                                         style={{ colorScheme: 'dark' }}
                                     />
-                                   </div>
                                 </div>
+                            </div>
 
-                                <div className="flex gap-2 pt-1">
-                                    <button
-                                        onClick={() => updateCard(editData)}
-                                        className="
-                                            flex-1 bg-[#579dff] hover:bg-[#4c8be0]
-                                            text-[#1d2125] font-bold text-xs py-2 rounded-lg
-                                            transition-all active:scale-95
-                                        "
-                                    >
-                                        Save Changes
-                                    </button>
-                                    <button
-                                        onClick={() => setIsEditing(false)}
-                                        className="
-                                            flex-1 bg-[#2c333a] hover:bg-[#343c44]
-                                            text-[#9fadbc] font-bold text-xs py-2 rounded-lg
-                                            transition-colors
-                                        "
-                                    >
-                                        Cancel
-                                    </button>
-                                </div>
+                            <div className="flex gap-2 pt-2 border-t border-zinc-800">
+                                <button
+                                    onClick={() => updateCard(editData)}
+                                    className="flex-1 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs py-2 transition-all active:scale-98"
+                                >
+                                    Save Changes
+                                </button>
+                                <button
+                                    onClick={() => setIsEditing(false)}
+                                    className="flex-1 rounded-xl border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 font-semibold text-xs py-2 transition-colors"
+                                >
+                                    Cancel
+                                </button>
                             </div>
                         </div>
                     </div>

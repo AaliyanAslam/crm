@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "seed:clients": "node scripts/seedClients.mjs",
-    "seed:projects": "node scripts/seedProjects.mjs"
+    "seed:projects": "node scripts/seedProjects.mjs",
+    "seed:boards": "node scripts/seedBoards.mjs"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",

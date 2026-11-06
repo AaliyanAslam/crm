@@ -28,6 +28,7 @@ const BoardContainer = React.memo(
     useEffect(() => {
       setLocalLists(initialLists ?? []);
     }, [initialLists]);
+
     useEffect(() => {
       setIsReady(true);
     }, []);
@@ -38,7 +39,6 @@ const BoardContainer = React.memo(
       if (!el) return;
 
       const onMouseDown = (e) => {
-        // Skip if clicking on interactive elements or draggables
         const target = e.target;
         if (
           target.closest(
@@ -85,7 +85,6 @@ const BoardContainer = React.memo(
       async (result) => {
         const { destination, source, draggableId, type } = result;
 
-        // If no destination or same position, bail
         if (!destination) return;
         if (
           destination.droppableId === source.droppableId &&
@@ -99,10 +98,8 @@ const BoardContainer = React.memo(
           const [movedList] = newLists.splice(source.index, 1);
           newLists.splice(destination.index, 0, movedList);
 
-          // Update local state
           setLocalLists(newLists);
 
-          // Persist to API
           try {
             const listId = parseInt(draggableId.replace("list-", ""));
             const res = await fetch(`/api/lists/${listId}`, {
@@ -124,7 +121,7 @@ const BoardContainer = React.memo(
           return;
         }
 
-        // Handle CARD drag (existing logic)
+        // Handle CARD drag
         const newLists = localLists.map((l) => ({
           ...l,
           cards: l.cards ? [...l.cards] : [],
@@ -140,14 +137,11 @@ const BoardContainer = React.memo(
         if (!srcList || !destList) return;
         if (srcList.cards.length === 0 || !srcList.cards[source.index]) return;
 
-        // Move card
         const [movedCard] = srcList.cards.splice(source.index, 1);
         destList.cards.splice(destination.index, 0, movedCard);
 
-        // Update local state immediately (optimistic)
         setLocalLists(newLists);
 
-        // Persist to API
         try {
           const cardId = parseInt(draggableId.replace("card-", ""));
           const destListId = parseInt(
@@ -165,7 +159,6 @@ const BoardContainer = React.memo(
 
           if (!res.ok) {
             console.error("Failed to update card order");
-            // Revert on error
             onUpdate?.();
           }
         } catch (err) {
@@ -173,7 +166,7 @@ const BoardContainer = React.memo(
           onUpdate?.();
         }
       },
-      [localLists, boardId, onUpdate],
+      [localLists, onUpdate],
     );
 
     const handleAddList = useCallback(async () => {
@@ -228,24 +221,17 @@ const BoardContainer = React.memo(
                   provided.innerRef(el);
                   scrollRef.current = el;
                 }}
-                className="
-                            flex gap-3 h-full
-                            items-start
-                            overflow-x-auto overflow-y-hidden
-                            px-4 py-4
-                            select-none
-                        "
+                className="flex gap-3 h-full items-start overflow-x-auto overflow-y-hidden px-4 py-4 select-none"
                 style={{
                   scrollbarWidth: "none",
                   msOverflowStyle: "none",
                   WebkitOverflowScrolling: "touch",
                   background: snapshot.isDraggingOver
-                    ? "rgba(87,157,255,0.04)"
+                    ? "rgba(99,102,241,0.04)"
                     : "transparent",
                   transition: "background 0.2s ease",
                 }}
               >
-                {/* Hide webkit scrollbar */}
                 <style>{`div::-webkit-scrollbar { display: none; }`}</style>
 
                 {localLists.map((list, i) => (
@@ -262,9 +248,7 @@ const BoardContainer = React.memo(
                         style={{
                           ...provided.draggableProps.style,
                           opacity: snapshot.isDragging ? 0.98 : 1,
-                          willChange: snapshot.isDragging
-                            ? "transform"
-                            : "auto",
+                          willChange: snapshot.isDragging ? "transform" : "auto",
                         }}
                       >
                         <div
@@ -281,7 +265,7 @@ const BoardContainer = React.memo(
                               columnCallbacks[list.list_id] ?? onUpdate
                             }
                             onCardClick={handleCardClick}
-                            animationDelay={i * 60}
+                            animationDelay={i * 50}
                             isDragging={snapshot.isDragging}
                           />
                         </div>
@@ -290,22 +274,13 @@ const BoardContainer = React.memo(
                   </Draggable>
                 ))}
 
-                {/* Add List Panel */}
+                {/* Add List Column Panel */}
                 {isAddingList ? (
-                  <div
-                    className="min-w-68 w-68 shrink-0 rounded-xl p-3"
-                    style={{ background: "#282e33" }}
-                  >
+                  <div className="min-w-72 w-72 shrink-0 rounded-xl p-3 border border-zinc-800 bg-[#16191f] shadow-xl">
                     <input
                       autoFocus
-                      className="
-                                        w-full rounded-lg px-3 py-2
-                                        text-sm font-semibold text-[#b6c2cf]
-                                        outline-none border-2 border-[#3d9ca8]
-                                        placeholder:text-[#9fadbc]/40
-                                    "
-                      style={{ background: "#22272b" }}
-                      placeholder="Enter list title…"
+                      className="w-full rounded-lg px-3 py-2 text-xs font-medium text-zinc-100 bg-[#111317] border border-zinc-700/80 outline-none focus:border-indigo-500 placeholder:text-zinc-500"
+                      placeholder="Enter column title…"
                       value={listName}
                       onChange={(e) => setListName(e.target.value)}
                       onKeyDown={handleKeyDown}
@@ -313,45 +288,28 @@ const BoardContainer = React.memo(
                     <div className="flex gap-2 mt-2.5 items-center">
                       <button
                         onClick={handleAddList}
-                        className="
-                                            text-sm font-semibold px-4 py-1.5 rounded-md
-                                            text-[#1d2125] bg-[#3d9ca8]
-                                            hover:bg-[#85b8ff]
-                                            active:scale-95
-                                            transition-all duration-150
-                                        "
+                        className="text-xs font-semibold px-3.5 py-1.5 rounded-lg text-white bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all"
                       >
-                        Add list
+                        Add column
                       </button>
                       <button
                         onClick={() => setIsAddingList(false)}
-                        className="text-[#9fadbc] hover:text-[#b6c2cf] text-xl leading-none px-1 transition-colors"
+                        className="text-zinc-400 hover:text-zinc-200 text-xs font-semibold px-2 py-1 transition-colors"
                       >
-                        ✕
+                        Cancel
                       </button>
                     </div>
                   </div>
                 ) : (
                   <button
                     onClick={() => setIsAddingList(true)}
-                    className="
-                                    min-w-68 w-68 shrink-0
-                                    flex items-center gap-2
-                                    px-4 py-3 rounded-xl
-                                    text-sm font-semibold text-[#b6c2cf]
-                                    hover:bg-white/10
-                                    active:scale-[0.98]
-                                    transition-all duration-200
-                                    whitespace-nowrap
-                                "
-                    style={{ background: "rgba(255,255,255,0.08)" }}
+                    className="min-w-72 w-72 shrink-0 flex items-center gap-2 px-4 py-3 rounded-xl text-xs font-semibold text-zinc-400 bg-[#16191f]/60 hover:bg-[#16191f] border border-dashed border-zinc-800 hover:border-zinc-700 active:scale-[0.99] transition-all whitespace-nowrap"
                   >
-                    <span className="text-lg leading-none">+</span>
-                    Add another list
+                    <span className="text-base leading-none text-zinc-300">+</span>
+                    Add another column
                   </button>
                 )}
 
-                {/* Right buffer so last column isn't flush against edge */}
                 {provided.placeholder}
                 <div className="min-w-2 shrink-0" />
               </div>
